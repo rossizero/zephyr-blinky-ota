@@ -14,14 +14,7 @@ extern "C" {
  */
 bool wifi_is_connected(void);
 
-/**
- * @brief Get IP address as string
- * 
- * @param ip_str Buffer to store IP address
- * @param len Buffer length
- * @return 0 on success, -1 on error
- */
-int wifi_get_ip_address(char *ip_str, size_t len);
+int wifi_get_ip_address_public(char *ip_str, size_t len);
 
 #ifdef __cplusplus
 }
