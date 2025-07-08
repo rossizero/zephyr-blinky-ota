@@ -13,8 +13,8 @@
 #define LED_SLOW_BLINK_MS 2000
 
 /* WiFi Configuration */
-#define WIFI_SSID "YourWiFiSSID"
-#define WIFI_PSK "YourWiFiPassword"
+#define WIFI_SSID ":)"
+#define WIFI_PSK "Schaezler17"
 
 /* OTA Server Configuration */
 #define OTA_SERVER_HOST "192.168.1.100"

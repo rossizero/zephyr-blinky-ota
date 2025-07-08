@@ -6,7 +6,7 @@ project(esp32_blinky_ota)
 target_sources(app PRIVATE
     src/main.c
     src/blinky.c
-    #src/wifi_mgmt.c
+    src/wifi_mgmt.c
     #src/ota_mgmt.c
 )
 
