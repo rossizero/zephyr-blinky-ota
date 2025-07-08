@@ -78,6 +78,7 @@ static int test_network_connectivity(void)
     }
 }
 
+
 /* IP-Adresse Debug-Funktion */
 static int wifi_get_ip_address(char *ip_str, size_t len)
 {
