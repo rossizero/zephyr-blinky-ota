@@ -1,0 +1,233 @@
+# Zephyr build artifacts
+build/
+build-*/
+**/build/
+
+# West workspace artifacts  
+.west/
+**/.west/
+
+# Zephyr-generated files
+zephyr/
+zephyr.*/
+.config
+.config.old
+include/generated/
+*.elf
+*.hex
+*.bin
+*.map
+*.lst
+*.dts.pre
+*.edt.pickle
+
+# CMake build files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cmake
+
+# Ninja build files
+build.ninja
+.ninja_deps
+.ninja_log
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+.pytest_cache/
+*.egg-info/
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Compilation artifacts
+*.o
+*.a
+*.d
+*.obj
+*.exe
+*.dll
+*.dylib
+
+# Debug files
+*.gdb_history
+*.pdb
+core
+core.*
+
+# Log files
+*.log
+log/
+logs/
+
+# Documentation build
+doc/_build/
+doc/doxygen/
+*.pdf
+
+# Temporary files
+tmp/
+temp/
+.tmp
+*.tmp
+*.bak
+*.backup
+
+# OS specific
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Hardware-specific ignores
+# SEGGER J-Link
+*.jlink
+
+# OpenOCD
+openocd.log
+
+# Serial/UART logs
+serial_*.txt
+uart_*.log
+
+# Certificates and keys (be careful with these!)
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+# Uncomment if you want to track test certificates:
+# !test_*.pem
+# !*_test.key
+
+*.o
+*.a
+*.d
+*.cmd
+*.log
+*.pyc
+*.swp
+*.swo
+*~
+
+# Emacs
+\#*\#
+
+build*/
+!doc/build/
+!scripts/build
+!tests/drivers/build_all
+!scripts/pylib/build_helpers
+cscope.*
+.dir
+
+/*.patch
+
+# The .cache directory will be used to cache toolchain capabilities if
+# no suitable out-of-tree directory is found.
+.cache
+
+outdir
+outdir-*
+scripts/basic/fixdep
+scripts/gen_idt/gen_idt
+coverage-report
+doc-coverage.info
+doc/_build
+doc/doxygen
+doc/xml
+doc/html
+doc/boards
+doc/samples
+doc/latex
+doc/themes/zephyr-docs-theme
+sanity-out*
+twister-out*
+bsim_out
+bsim_bt_out
+myresults.xml
+tests/RunResults.xml
+scripts/grub
+doc/reference/kconfig/*.rst
+doc/doc.warnings
+.*project
+.settings
+.envrc
+.vscode
+hide-defaults-note
+venv
+.venv
+.DS_Store
+.clangd
+new.info
+
+# Cargo drops lock files in projects to capture resolved dependencies.
+# We don't want to record these.
+Cargo.lock
+
+# Cargo encourages a .cargo/config.toml file to symlink to a generated file.  Don't save these.
+.cargo/
+
+# Normal west builds will place the Rust target directory under the build directory.  However,
+# sometimes IDEs and such will litter these target directories as well.
+target/
+
+# CI output
+compliance.xml
+_error.types
+
+# Tag files
+GPATH
+GRTAGS
+GTAGS
+TAGS
+tags
+
+.idea
+
+# from check_compliance.py
+BinaryFiles.txt
+BoardYml.txt
+Checkpatch.txt
+ClangFormat.txt
+DevicetreeBindings.txt
+GitDiffCheck.txt
+Gitlint.txt
+Identity.txt
+ImageSize.txt
+Kconfig.txt
+KconfigBasic.txt
+KconfigBasicNoModules.txt
+KconfigHWMv2.txt
+KeepSorted.txt
+MaintainersFormat.txt
+ModulesMaintainers.txt
+Nits.txt
+Pylint.txt
+PythonCompat.txt
+Ruff.txt
+SphinxLint.txt
+SysbuildKconfig.txt
+SysbuildKconfigBasic.txt
+SysbuildKconfigBasicNoModules.txt
+TextEncoding.txt
+YAMLLint.txt
