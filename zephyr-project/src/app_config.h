@@ -13,7 +13,7 @@
 #define LED_SLOW_BLINK_MS 2000
 
 /* WiFi Configuration */
-#define WIFI_SSID ":)"
+#define WIFI_SSID " :)"
 #define WIFI_PSK "Schaezler17"
 
 /* OTA Server Configuration */

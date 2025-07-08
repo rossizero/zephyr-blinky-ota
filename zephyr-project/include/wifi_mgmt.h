@@ -15,13 +15,13 @@ extern "C" {
 bool wifi_is_connected(void);
 
 /**
- * @brief Initialize WiFi management subsystem
+ * @brief Get IP address as string
  * 
- * This function is called automatically during system initialization.
- * 
- * @return 0 on success, negative error code on failure
+ * @param ip_str Buffer to store IP address
+ * @param len Buffer length
+ * @return 0 on success, -1 on error
  */
-int wifi_mgmt_init(void);
+int wifi_get_ip_address(char *ip_str, size_t len);
 
 #ifdef __cplusplus
 }
