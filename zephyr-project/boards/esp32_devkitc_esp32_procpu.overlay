@@ -10,4 +10,60 @@
     aliases {
         led0 = &status_led;
     };
+
+    chosen {
+        zephyr,console = &uart0;
+        zephyr,shell-uart = &uart0;
+    };
+};
+
+&uart0 {
+    status = "okay";
+    current-speed = <115200>;
+};
+
+&wifi {
+    status = "okay";
+};
+
+/* Flash partitioning for OTA */
+
+&flash0 {
+    /delete-node/ partitions;
+    partitions {
+        compatible = "fixed-partitions";
+        #address-cells = <1>;
+        #size-cells = <1>;
+
+        /* Reserve 64KB for the bootloader */
+        boot_partition: partition@0 {
+            label = "mcuboot";
+            reg = <0x00000000 0x00010000>;  /* 64KB */
+            read-only;
+        };
+
+        /* Reserve 32KB for storage */
+        storage_partition: partition@10000 {
+            label = "storage";
+            reg = <0x00010000 0x00008000>;  /* 32KB */
+        };
+
+        /* Application image slot 0 - 1MB */
+        slot0_partition: partition@18000 {
+            label = "image-0";
+            reg = <0x00018000 0x00100000>;  /* 1MB */
+        };
+
+        /* Application image slot 1 - 1MB */
+        slot1_partition: partition@118000 {
+            label = "image-1";
+            reg = <0x00118000 0x00100000>;  /* 1MB */
+        };
+
+        /* 256KB for scratch partition */
+        scratch_partition: partition@218000 {
+            label = "image-scratch";
+            reg = <0x00218000 0x00040000>;  /* 256KB */
+        };
+    };
 };

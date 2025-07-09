@@ -1,0 +1,5 @@
+west:
+  command: C:\Users\SebastianR\Desktop\repos\zephyr-blinky-ota\venv\Scripts\west build
+    -b esp32_devkitc/esp32/procpu zephyr-project --pristine
+  topdir: C:\Users\SebastianR\Desktop\repos\zephyr-blinky-ota\zephyr-project
+  version: 1.4.0

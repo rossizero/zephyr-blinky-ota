@@ -7,7 +7,7 @@ target_sources(app PRIVATE
     src/main.c
     src/blinky.c
     src/wifi_mgmt.c
-    #src/ota_mgmt.c
+    src/ota_mgmt.c
 )
 
 target_include_directories(app PRIVATE include)

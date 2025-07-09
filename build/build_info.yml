@@ -1,0 +1,62 @@
+cmake:
+  application:
+    configuration-dir: 'C:/Users/SebastianR/Desktop/repos/zephyr-blinky-ota/zephyr-project'
+    source-dir: 'C:/Users/SebastianR/Desktop/repos/zephyr-blinky-ota/zephyr-project'
+  board:
+    name: 'esp32_devkitc'
+    path:
+     - 'C:/Users/SebastianR/Desktop/repos/zephyr-blinky-ota/zephyr-project/zephyr/boards/espressif/esp32_devkitc'
+    qualifiers: 'esp32/procpu'
+    revision: ''
+  devicetree:
+    bindings-dirs:
+     - 'C:/Users/SebastianR/Desktop/repos/zephyr-blinky-ota/zephyr-project/zephyr/dts/bindings'
+    files:
+     - 'C:/Users/SebastianR/Desktop/repos/zephyr-blinky-ota/zephyr-project/zephyr/boards/espressif/esp32_devkitc/esp32_devkitc_procpu.dts'
+     - 'C:/Users/SebastianR/Desktop/repos/zephyr-blinky-ota/zephyr-project/boards/esp32_devkitc_esp32_procpu.overlay'
+    include-dirs:
+     - 'C:/Users/SebastianR/Desktop/repos/zephyr-blinky-ota/zephyr-project/modules/hal/ambiq/dts'
+     - 'C:/Users/SebastianR/Desktop/repos/zephyr-blinky-ota/zephyr-project/modules/hal/atmel/include'
+     - 'C:/Users/SebastianR/Desktop/repos/zephyr-blinky-ota/zephyr-project/modules/hal/bouffalolab/include'
+     - 'C:/Users/SebastianR/Desktop/repos/zephyr-blinky-ota/zephyr-project/modules/hal/bouffalolab/include/zephyr'
+     - 'C:/Users/SebastianR/Desktop/repos/zephyr-blinky-ota/zephyr-project/modules/hal/gigadevice/include'
+     - 'C:/Users/SebastianR/Desktop/repos/zephyr-blinky-ota/zephyr-project/modules/hal/microchip/include'
+     - 'C:/Users/SebastianR/Desktop/repos/zephyr-blinky-ota/zephyr-project/modules/hal/microchip/dts'
+     - 'C:/Users/SebastianR/Desktop/repos/zephyr-blinky-ota/zephyr-project/modules/hal/nuvoton/dts'
+     - 'C:/Users/SebastianR/Desktop/repos/zephyr-blinky-ota/zephyr-project/modules/hal/nxp/dts'
+     - 'C:/Users/SebastianR/Desktop/repos/zephyr-blinky-ota/zephyr-project/modules/hal/stm32/dts'
+     - 'C:/Users/SebastianR/Desktop/repos/zephyr-blinky-ota/zephyr-project/modules/hal/ti/dts'
+     - 'C:/Users/SebastianR/Desktop/repos/zephyr-blinky-ota/zephyr-project/include'
+     - 'C:/Users/SebastianR/Desktop/repos/zephyr-blinky-ota/zephyr-project/zephyr/include'
+     - 'C:/Users/SebastianR/Desktop/repos/zephyr-blinky-ota/zephyr-project/zephyr/include/zephyr'
+     - 'C:/Users/SebastianR/Desktop/repos/zephyr-blinky-ota/zephyr-project/zephyr/dts/common'
+     - 'C:/Users/SebastianR/Desktop/repos/zephyr-blinky-ota/zephyr-project/zephyr/dts/vendor'
+     - 'C:/Users/SebastianR/Desktop/repos/zephyr-blinky-ota/zephyr-project/zephyr/dts/rx'
+     - 'C:/Users/SebastianR/Desktop/repos/zephyr-blinky-ota/zephyr-project/zephyr/dts/x86'
+     - 'C:/Users/SebastianR/Desktop/repos/zephyr-blinky-ota/zephyr-project/zephyr/dts/xtensa'
+     - 'C:/Users/SebastianR/Desktop/repos/zephyr-blinky-ota/zephyr-project/zephyr/dts/sparc'
+     - 'C:/Users/SebastianR/Desktop/repos/zephyr-blinky-ota/zephyr-project/zephyr/dts/riscv'
+     - 'C:/Users/SebastianR/Desktop/repos/zephyr-blinky-ota/zephyr-project/zephyr/dts/posix'
+     - 'C:/Users/SebastianR/Desktop/repos/zephyr-blinky-ota/zephyr-project/zephyr/dts/arm64'
+     - 'C:/Users/SebastianR/Desktop/repos/zephyr-blinky-ota/zephyr-project/zephyr/dts/arm'
+     - 'C:/Users/SebastianR/Desktop/repos/zephyr-blinky-ota/zephyr-project/zephyr/dts/arc'
+     - 'C:/Users/SebastianR/Desktop/repos/zephyr-blinky-ota/zephyr-project/zephyr/dts'
+    user-files:
+     - 'C:/Users/SebastianR/Desktop/repos/zephyr-blinky-ota/zephyr-project/boards/esp32_devkitc_esp32_procpu.overlay'
+  kconfig:
+    files:
+     - 'C:/Users/SebastianR/Desktop/repos/zephyr-blinky-ota/zephyr-project/zephyr/boards/espressif/esp32_devkitc/esp32_devkitc_procpu_defconfig'
+     - 'C:/Users/SebastianR/Desktop/repos/zephyr-blinky-ota/zephyr-project/prj.conf'
+    user-files:
+     - 'C:/Users/SebastianR/Desktop/repos/zephyr-blinky-ota/zephyr-project/prj.conf'
+  toolchain:
+    name: 'zephyr'
+    path: 'C:/zephyr-sdk-0.17.2/zephyr-sdk-0.17.2'
+  zephyr:
+    version: '4.2.0-rc1'
+    zephyr-base: 'C:/Users/SebastianR/Desktop/repos/zephyr-blinky-ota/zephyr-project/zephyr'
+version: '0.1.0'
+west:
+  command: 'C:\Users\SebastianR\Desktop\repos\zephyr-blinky-ota\venv\Scripts\west build -b esp32_devkitc/esp32/procpu zephyr-project --pristine'
+  topdir: 'C:\Users\SebastianR\Desktop\repos\zephyr-blinky-ota\zephyr-project'
+  version: '1.4.0'

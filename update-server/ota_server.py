@@ -1,40 +1,101 @@
 #!/usr/bin/env python3
-# simple_ota_server.py
+# ota_server.py
 
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import json
 import os
+import argparse
+import logging
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+# Default values
+DEFAULT_PORT = 8080
+DEFAULT_VERSION = "1.0.1"
+DEFAULT_FIRMWARE_PATH = "firmware.bin"
 
 class OTAHandler(BaseHTTPRequestHandler):
+    def __init__(self, *args, version=DEFAULT_VERSION, firmware_path=DEFAULT_FIRMWARE_PATH, **kwargs):
+        self.version = version
+        self.firmware_path = firmware_path
+        super().__init__(*args, **kwargs)
+    
+    def log_message(self, format, *args):
+        logger.info("%s - %s", self.address_string(), format % args)
+    
     def do_GET(self):
         if self.path == '/api/version':
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
             self.end_headers()
             
+            firmware_size = 0
+            if os.path.exists(self.firmware_path):
+                firmware_size = os.path.getsize(self.firmware_path)
+            else:
+                logger.warning(f"Firmware file not found: {self.firmware_path}")
+            
             version_info = {
-                "version": "1.0.1",
-                "size": os.path.getsize("firmware.bin") if os.path.exists("firmware.bin") else 0
+                "version": self.version,
+                "size": firmware_size
             }
+            logger.info(f"Sending version info: {version_info}")
             self.wfile.write(json.dumps(version_info).encode())
             
         elif self.path == '/api/firmware':
-            if os.path.exists("firmware.bin"):
+            if os.path.exists(self.firmware_path):
                 self.send_response(200)
                 self.send_header('Content-type', 'application/octet-stream')
-                self.send_header('Content-Length', str(os.path.getsize("firmware.bin")))
+                self.send_header('Content-Length', str(os.path.getsize(self.firmware_path)))
                 self.end_headers()
                 
-                with open("firmware.bin", "rb") as f:
+                logger.info(f"Sending firmware file: {self.firmware_path} ({os.path.getsize(self.firmware_path)} bytes)")
+                with open(self.firmware_path, "rb") as f:
                     self.wfile.write(f.read())
+                logger.info("Firmware sent successfully")
             else:
+                logger.error(f"Firmware file not found: {self.firmware_path}")
                 self.send_response(404)
                 self.end_headers()
+                self.wfile.write(b"Firmware file not found")
         else:
+            logger.warning(f"Unknown path requested: {self.path}")
             self.send_response(404)
             self.end_headers()
+            self.wfile.write(b"Not found")
+
+def run_server(port=DEFAULT_PORT, version=DEFAULT_VERSION, firmware_path=DEFAULT_FIRMWARE_PATH):
+    def handler(*args, **kwargs):
+        return OTAHandler(*args, version=version, firmware_path=firmware_path, **kwargs)
+    
+    server = HTTPServer(('0.0.0.0', port), handler)
+    logger.info(f"OTA Server running on port {port}")
+    logger.info(f"Serving version: {version}")
+    logger.info(f"Firmware path: {firmware_path}")
+    
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        logger.info("Server stopped by user")
+    finally:
+        server.server_close()
+        logger.info("Server closed")
 
 if __name__ == '__main__':
-    server = HTTPServer(('0.0.0.0', 8080), OTAHandler)
-    print("OTA Server running on port 8080")
-    server.serve_forever()
+    parser = argparse.ArgumentParser(description='OTA Update Server')
+    parser.add_argument('--port', type=int, default=DEFAULT_PORT, help='Server port')
+    parser.add_argument('--version', default=DEFAULT_VERSION, help='Firmware version')
+    parser.add_argument('--firmware', default=DEFAULT_FIRMWARE_PATH, help='Path to firmware binary')
+    parser.add_argument('--verbose', action='store_true', help='Enable verbose logging')
+    
+    args = parser.parse_args()
+    
+    if args.verbose:
+        logger.setLevel(logging.DEBUG)
+    
+    run_server(args.port, args.version, args.firmware)
