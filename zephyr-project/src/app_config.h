@@ -5,7 +5,7 @@
 #define APP_NAME "ESP32_BLINKY_OTA"
 #define APP_VERSION_MAJOR 1
 #define APP_VERSION_MINOR 0
-#define APP_VERSION_PATCH 0
+#define APP_VERSION_PATCH 13
 
 /* LED Configuration */
 #define LED_BLINK_INTERVAL_MS 1000
@@ -18,7 +18,7 @@
 #define WIFI_PSK "Schaezler17"
 
 /* OTA Server Configuration */
-#define OTA_SERVER_HOST "192.168.1.100"  // Replace with your server IP
+#define OTA_SERVER_HOST "192.168.2.86"  // Replace with your server IP
 #define OTA_SERVER_PORT 8080
 #define OTA_VERSION_URL "/api/version"
 #define OTA_FIRMWARE_URL "/api/firmware"

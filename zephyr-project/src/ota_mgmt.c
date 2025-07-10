@@ -228,7 +228,7 @@ static int http_response_cb(struct http_response *rsp,
                     update_status(OTA_STATUS_UPDATE_AVAILABLE);
                     
                     /* Start download after a short delay */
-                    k_work_schedule(&ota_check_work, K_SECONDS(2));
+                    k_work_schedule(&ota_check_work, K_SECONDS(10));
                 } else {
                     LOG_INF("Already running latest version");
                     update_status(OTA_STATUS_IDLE);
@@ -362,6 +362,7 @@ static int check_for_update(void)
 /* Download and install firmware update */
 static int perform_update(void)
 {
+    LOG_INF("Tryning to download firmware");
     if (!wifi_is_connected()) {
         LOG_WRN("WiFi not connected, cannot download update");
         return -ENOTCONN;
@@ -527,7 +528,7 @@ int ota_mgmt_init(void)
         k_work_schedule(&ota_check_work, K_SECONDS(30));
     } else {
         /* Start first update check after 60 seconds */
-        k_work_schedule(&ota_check_work, K_SECONDS(60));
+        k_work_schedule(&ota_check_work, K_SECONDS(35));
     }
     
     LOG_INF("OTA management subsystem initialized");

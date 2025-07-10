@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 # Default values
 DEFAULT_PORT = 8080
 DEFAULT_VERSION = "1.0.1"
-DEFAULT_FIRMWARE_PATH = "firmware.bin"
+DEFAULT_FIRMWARE_PATH = "zephyr.bin"
 
 class OTAHandler(BaseHTTPRequestHandler):
     def __init__(self, *args, version=DEFAULT_VERSION, firmware_path=DEFAULT_FIRMWARE_PATH, **kwargs):
@@ -30,10 +30,7 @@ class OTAHandler(BaseHTTPRequestHandler):
     
     def do_GET(self):
         if self.path == '/api/version':
-            self.send_response(200)
-            self.send_header('Content-type', 'application/json')
-            self.end_headers()
-            
+            # --- START: Recommended Changes ---
             firmware_size = 0
             if os.path.exists(self.firmware_path):
                 firmware_size = os.path.getsize(self.firmware_path)
@@ -45,20 +42,37 @@ class OTAHandler(BaseHTTPRequestHandler):
                 "size": firmware_size
             }
             logger.info(f"Sending version info: {version_info}")
-            self.wfile.write(json.dumps(version_info).encode())
             
+            # Encode the body *before* sending headers to get its length
+            response_body = json.dumps(version_info).encode()
+            
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            # 1. Add Content-Length so the client knows when the response is done
+            self.send_header('Content-Length', str(len(response_body)))
+            # 2. Add Connection: close to politely signal the end of the transaction
+            self.send_header('Connection', 'close')
+            self.end_headers()
+            
+            self.wfile.write(response_body)
+            # --- END: Recommended Changes ---
+
         elif self.path == '/api/firmware':
             if os.path.exists(self.firmware_path):
+                firmware_size = os.path.getsize(self.firmware_path)
                 self.send_response(200)
                 self.send_header('Content-type', 'application/octet-stream')
-                self.send_header('Content-Length', str(os.path.getsize(self.firmware_path)))
+                self.send_header('Content-Length', str(firmware_size))
+                # Add this header here as well for consistency
+                self.send_header('Connection', 'close') 
                 self.end_headers()
                 
-                logger.info(f"Sending firmware file: {self.firmware_path} ({os.path.getsize(self.firmware_path)} bytes)")
+                logger.info(f"Sending firmware file: {self.firmware_path} ({firmware_size} bytes)")
                 with open(self.firmware_path, "rb") as f:
                     self.wfile.write(f.read())
                 logger.info("Firmware sent successfully")
             else:
+                # ... (rest of the code is fine)
                 logger.error(f"Firmware file not found: {self.firmware_path}")
                 self.send_response(404)
                 self.end_headers()
@@ -66,6 +80,8 @@ class OTAHandler(BaseHTTPRequestHandler):
         else:
             logger.warning(f"Unknown path requested: {self.path}")
             self.send_response(404)
+            # Also good practice to add Connection: close to error responses
+            self.send_header('Connection', 'close')
             self.end_headers()
             self.wfile.write(b"Not found")
 
