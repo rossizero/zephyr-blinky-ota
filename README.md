@@ -38,6 +38,16 @@ This project demonstrates a Zephyr RTOS-based ESP32 application with WiFi connec
 ### Building
 
 Use the provided build script:
+```
+MCUBOOT:
+actiavte venv
+go to: zephyr-project\bootloader\mcuboot\boot\zephyr
+maybe set env: 
+$env:ZEPHYR_SDK_INSTALL_DIR = "C:\zephyr-sdk-0.17.2"
+west build -b esp32_devkitc/esp32/procpu
+west flash
+then continue with the app itself
+```
 
 ```powershell
 # Build the firmware

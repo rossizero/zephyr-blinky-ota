@@ -43,12 +43,10 @@ int main(void)
     
     LOG_INF("Starting ESP32 Blinky OTA v%s", version);
     
-    /* Initialize LED blinking */
-    blinky_init();
-    
     /* Register OTA status callback */
     ota_register_status_callback(ota_status_changed);
-    
+
+    LOG_INF("Check if new firmware");
     /* If this is a new firmware, confirm it after 30 seconds */
     if (boot_is_img_confirmed() == 0) {
         LOG_INF("Running new firmware - will confirm after 30 seconds if stable");
@@ -57,6 +55,7 @@ int main(void)
         ota_confirm_image();
     }
     
+    LOG_INF("Main loop");
     while (1) {
         k_sleep(K_SECONDS(5));
         
@@ -64,6 +63,8 @@ int main(void)
         int result = wifi_get_ip_address_public(ip_str, sizeof(ip_str));
         if (result == 0) {
             LOG_INF("IP: %s", ip_str);
+        } else {
+            LOG_INF("No IP");
         }
     }
     
