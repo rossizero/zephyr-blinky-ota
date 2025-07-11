@@ -17,9 +17,9 @@ static void confirm_work_handler(struct k_work *work)
 {
     LOG_INF("Confirming running firmware as valid.");
     if (boot_write_img_confirmed() != 0) {
-        LOG_ERR("Failed to confirm image!");
+        LOG_ERR("Failed to confirm image! This may cause a revert on next boot.");
     } else {
-        LOG_INF("Image confirmed.");
+        LOG_INF("Image confirmed successfully. The update is now permanent.");
     }
 }
 
@@ -53,22 +53,32 @@ static void ota_status_changed(ota_status_t status)
 int main(void)
 {
     char version[16];
-    ota_get_current_version(version, sizeof(version));
     
-    // ... initializations ...
-    LOG_INF("Starting ESP32 Blinky OTA v%s", version);
-    
-    // Check for confirmation status right away
+    LOG_INF("====================================");
+    LOG_INF("   ESP32 OTA Application Booting    ");
+    LOG_INF("====================================");
+
+    // This is the most important part after an OTA update.
+    // Check if we are running an unconfirmed image.
     if (boot_is_img_confirmed() == 0) {
-        LOG_INF("Running new firmware in TEST mode. Scheduling confirmation in 30s.");
+        LOG_WRN("Running new firmware in TEST mode.");
+        LOG_WRN("Scheduling confirmation in 30 seconds.");
+        // We wait 30 seconds to ensure the system is stable (e.g., WiFi connects)
+        // before making the update permanent.
         k_work_schedule(&confirm_work, K_SECONDS(30));
+    } else {
+        LOG_INF("Running a confirmed image.");
     }
 
-    // Initialize your subsystems AFTER the check
+    // Initialize subsystems
+    wifi_init(); // Your function to start WiFi
     ota_register_status_callback(ota_status_changed);
-    // The ota_mgmt_init will be called by SYS_INIT
+    // ota_mgmt_init() is called automatically via SYS_INIT
 
-    LOG_INF("Main loop");
+    ota_get_current_version(version, sizeof(version));
+    LOG_INF("Firmware Version: %s", version);
+
+    LOG_INF("Main loop started. System is running.");
     while (1) {
         k_sleep(K_SECONDS(5));
         

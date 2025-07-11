@@ -512,6 +512,7 @@ int ota_confirm_image(void)
     return boot_write_img_confirmed();
 }
 
+// Ensure your ota_mgmt_init function looks like this:
 int ota_mgmt_init(void)
 {
     /* Initialize OTA check work */
@@ -520,15 +521,13 @@ int ota_mgmt_init(void)
     /* Setup watchdog */
     setup_watchdog();
     
-    /* Check if we're running a test image */
-    if (boot_is_img_confirmed() == 0) {
-        LOG_INF("Running unconfirmed image - waiting for validation");
-        
-        /* Schedule image confirmation after 30 seconds if everything works */
-        k_work_schedule(&ota_check_work, K_SECONDS(15));
-    } else {
-        /* Start first update check after 60 seconds */
-        k_work_schedule(&ota_check_work, K_SECONDS(35));
+    /* 
+     * The confirmation logic is now handled cleanly in main.c.
+     * We only schedule a check here if the image is already stable and confirmed.
+     */
+    if (boot_is_img_confirmed()) {
+       LOG_INF("Scheduling initial OTA check in 30 seconds.");
+       k_work_schedule(&ota_check_work, K_SECONDS(30));
     }
     
     LOG_INF("OTA management subsystem initialized");

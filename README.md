@@ -57,6 +57,10 @@ west flash -d build_bootloader
 west flash -d build_app
 ```
 
+```
+west sign -t imgtool -- keygen -k root-rsa-2048.pem -t rsa-2048
+```
+
 ```powershell
 # Build the firmware
 ./build.ps1

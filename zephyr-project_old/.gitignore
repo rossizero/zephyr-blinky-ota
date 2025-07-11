@@ -1,7 +1,6 @@
 # Zephyr build artifacts
 build/
 build-*/
-build_*/
 **/build/
 
 # West workspace artifacts  

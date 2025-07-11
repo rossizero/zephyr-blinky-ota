@@ -1,4 +1,9 @@
+/*
+ * Application-specific hardware configuration and flash layout.
+ * The flash partition map here MUST match the one in the .yml file.
+ */
 / {
+    /* Board-specific hardware customization for your application */
     leds {
         compatible = "gpio-leds";
         status_led: led_0 {
@@ -9,11 +14,13 @@
 
     aliases {
         led0 = &status_led;
+        watchdog0 = &wdt0;
     };
 
     chosen {
         zephyr,console = &uart0;
         zephyr,shell-uart = &uart0;
+        zephyr,code-partition = &slot0_partition; /* Tells Zephyr where the app runs */
     };
 };
 
@@ -26,43 +33,35 @@
     status = "okay";
 };
 
-/* Flash partitioning for OTA */
+&wdt0 {
+    status = "okay";
+};
+
+/* Flash partitioning for OTA. MUST MATCH partitions.yml */
 &flash0 {
-    /delete-node/ partitions;
     partitions {
         compatible = "fixed-partitions";
         #address-cells = <1>;
         #size-cells = <1>;
 
-        /* MCUboot bootloader - 64KB */
-        boot_partition: partition@0 {
-            label = "mcuboot";
-            reg = <0x00000000 0x00010000>;
-            read-only;
-        };
-
-        /* Storage partition - 32KB, aligned to 4KB boundary */
-        storage_partition: partition@10000 {
-            label = "storage";
-            reg = <0x00010000 0x00008000>;
-        };
-
-        /* Application slot 0 - 1MB, aligned to 4KB boundary */
         slot0_partition: partition@20000 {
-            label = "image-0";
+            label = "slot0_partition";
             reg = <0x00020000 0x00100000>;
         };
 
-        /* Application slot 1 - 1MB, aligned to 4KB boundary */
         slot1_partition: partition@120000 {
-            label = "image-1";
+            label = "slot1_partition";
             reg = <0x00120000 0x00100000>;
         };
 
-        /* Scratch partition - 256KB, aligned to 4KB boundary */
         scratch_partition: partition@220000 {
-            label = "image-scratch";
+            label = "scratch_partition";
             reg = <0x00220000 0x00040000>;
+        };
+
+        storage_partition: partition@260000 {
+            label = "storage_partition";
+            reg = <0x00260000 0x00008000>;
         };
     };
 };
