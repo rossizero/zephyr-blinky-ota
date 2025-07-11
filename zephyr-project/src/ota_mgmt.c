@@ -525,7 +525,7 @@ int ota_mgmt_init(void)
         LOG_INF("Running unconfirmed image - waiting for validation");
         
         /* Schedule image confirmation after 30 seconds if everything works */
-        k_work_schedule(&ota_check_work, K_SECONDS(30));
+        k_work_schedule(&ota_check_work, K_SECONDS(15));
     } else {
         /* Start first update check after 60 seconds */
         k_work_schedule(&ota_check_work, K_SECONDS(35));

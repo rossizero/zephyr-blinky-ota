@@ -1,0 +1,26 @@
+# pm_static.yml for ESP32 with 4MB Flash
+
+mcuboot:
+  address: 0x0
+  size: 0x10000          # 64KB for the bootloader
+  region: flash_primary
+
+mcuboot_primary:
+  address: 0x10000
+  size: 0x1D0000         # 1856KB for the primary app slot
+  region: flash_primary
+
+mcuboot_secondary:
+  address: 0x1E0000
+  size: 0x1D0000         # 1856KB for the secondary app slot
+  region: flash_primary
+
+scratch:
+  address: 0x3B0000
+  size: 0x40000          # 256KB for the scratch area (used during swap)
+  region: flash_primary
+
+storage:
+  address: 0x3F0000
+  size: 0x10000          # 64KB for settings, etc.
+  region: flash_primary

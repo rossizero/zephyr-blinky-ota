@@ -49,6 +49,14 @@ west flash
 then continue with the app itself
 ```
 
+```
+west build -b esp32_devkitc/esp32/procpu -p always -d build_bootloader bootloader/mcuboot/boot/zephyr -- -DPM_STATIC_YML_FILE="pm_static.yml"
+west build -b esp32_devkitc/esp32/procpu -p always -d build_app . -- -DPM_STATIC_YML_FILE="pm_static.yml"
+
+west flash -d build_bootloader
+west flash -d build_app
+```
+
 ```powershell
 # Build the firmware
 ./build.ps1

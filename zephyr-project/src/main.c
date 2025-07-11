@@ -9,6 +9,20 @@
 
 LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
 
+// Define a work item for the delayed confirmation
+static void confirm_work_handler(struct k_work *work);
+static K_WORK_DELAYABLE_DEFINE(confirm_work, confirm_work_handler);
+
+static void confirm_work_handler(struct k_work *work)
+{
+    LOG_INF("Confirming running firmware as valid.");
+    if (boot_write_img_confirmed() != 0) {
+        LOG_ERR("Failed to confirm image!");
+    } else {
+        LOG_INF("Image confirmed.");
+    }
+}
+
 /* OTA status callback */
 static void ota_status_changed(ota_status_t status)
 {
@@ -41,20 +55,19 @@ int main(void)
     char version[16];
     ota_get_current_version(version, sizeof(version));
     
+    // ... initializations ...
     LOG_INF("Starting ESP32 Blinky OTA v%s", version);
     
-    /* Register OTA status callback */
-    ota_register_status_callback(ota_status_changed);
-
-    LOG_INF("Check if new firmware");
-    /* If this is a new firmware, confirm it after 30 seconds */
+    // Check for confirmation status right away
     if (boot_is_img_confirmed() == 0) {
-        LOG_INF("Running new firmware - will confirm after 30 seconds if stable");
-        k_sleep(K_SECONDS(30));
-        LOG_INF("Confirming running firmware as valid");
-        ota_confirm_image();
+        LOG_INF("Running new firmware in TEST mode. Scheduling confirmation in 30s.");
+        k_work_schedule(&confirm_work, K_SECONDS(30));
     }
-    
+
+    // Initialize your subsystems AFTER the check
+    ota_register_status_callback(ota_status_changed);
+    // The ota_mgmt_init will be called by SYS_INIT
+
     LOG_INF("Main loop");
     while (1) {
         k_sleep(K_SECONDS(5));
