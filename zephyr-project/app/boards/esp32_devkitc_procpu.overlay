@@ -2,6 +2,7 @@
  * Application-specific hardware configuration and flash layout.
  * The flash partition map here MUST match the one in the .yml file.
  */
+
 / {
     /* Board-specific hardware customization for your application */
     leds {
@@ -37,7 +38,7 @@
     status = "okay";
 };
 
-/* Flash partitioning for OTA. MUST MATCH partitions.yml */
+
 &flash0 {
     /delete-node/ partitions;
     partitions {
@@ -45,24 +46,40 @@
         #address-cells = <1>;
         #size-cells = <1>;
 
+        /* ESP32 Partition Table */
+        nvs_partition: partition@9000 {
+            label = "nvs";
+            reg = <0x00009000 0x00004000>;
+        };
+
+        otadata_partition: partition@d000 {
+            label = "otadata";
+            reg = <0x0000d000 0x00002000>;
+        };
+
+        phy_init_partition: partition@f000 {
+            label = "phy_init";
+            reg = <0x0000f000 0x00001000>;
+        };
+
+        mcuboot_partition: partition@10000 {
+            label = "mcuboot";
+            reg = <0x00010000 0x00010000>;
+        };
+
         slot0_partition: partition@20000 {
-            label = "slot0_partition";
+            label = "image-0";
             reg = <0x00020000 0x00100000>;
         };
 
         slot1_partition: partition@120000 {
-            label = "slot1_partition";
+            label = "image-1";
             reg = <0x00120000 0x00100000>;
         };
 
-        scratch_partition: partition@220000 {
-            label = "scratch_partition";
-            reg = <0x00220000 0x00040000>;
-        };
-
-        storage_partition: partition@260000 {
-            label = "storage_partition";
-            reg = <0x00260000 0x00008000>;
+        storage_partition: partition@220000 {
+            label = "storage";
+            reg = <0x00220000 0x00010000>;
         };
     };
 };

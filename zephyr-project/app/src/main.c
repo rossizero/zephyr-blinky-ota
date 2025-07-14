@@ -71,6 +71,7 @@ int main(void)
     }
 
     // Initialize subsystems
+    //wifi_init(); // Your function to start WiFi
     ota_register_status_callback(ota_status_changed);
     // ota_mgmt_init() is called automatically via SYS_INIT
 

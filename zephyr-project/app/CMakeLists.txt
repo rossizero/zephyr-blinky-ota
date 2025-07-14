@@ -1,10 +1,17 @@
+# app/CMakeLists.txt (Korrigierte und vollständige Version)
+
+# Definiert die minimale CMake-Version
 cmake_minimum_required(VERSION 3.20.0)
 
+# Findet das Zephyr-Paket und lädt dessen CMake-Funktionen.
+# Dies ist auch innerhalb von Sysbuild für jede Anwendung notwendig.
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
-project(esp32_blinky_ota)
 
-set(mcuboot_CONF_FILE ${CMAKE_CURRENT_SOURCE_DIR}/child_image/mcuboot/prj.conf)
+# Definiert den Namen dieses spezifischen Anwendungs-Projekts.
+# Der Name MUSS mit dem Ordnernamen übereinstimmen.
+project(app)
 
+# Fügt Ihre C-Quelldateien zum "app"-Ziel hinzu.
 target_sources(app PRIVATE
     src/main.c
     src/blinky.c
