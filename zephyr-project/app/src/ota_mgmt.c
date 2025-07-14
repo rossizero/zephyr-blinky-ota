@@ -16,17 +16,15 @@
 #include "ota_mgmt.h"
 #include "blinky.h"
 #include <zephyr/devicetree.h>
+#include <zephyr/dfu/flash_img.h>
 
 
 LOG_MODULE_REGISTER(ota_mgmt, LOG_LEVEL_INF);
 
-#define FLASH_AREA_IMAGE_SECONDARY DT_FIXED_PARTITION_ID(DT_NODELABEL(slot1_partition))
-
+struct flash_img_context image_ctx;
 
 /* OTA state variables */
 static struct k_work_delayable ota_check_work;
-static struct stream_flash_ctx flash_ctx;
-static uint8_t stream_buffer[1024]; /* Buffer for stream_flash */
 static ota_status_t current_status = OTA_STATUS_IDLE;
 static ota_error_t last_error = OTA_ERR_NONE;
 static void (*status_callback)(ota_status_t) = NULL;
@@ -142,7 +140,7 @@ static void feed_watchdog(void)
 static int create_http_socket(const char *host, int port)
 {
     struct zsock_addrinfo hints, *result;
-    struct sockaddr_in addr;
+    //struct sockaddr_in addr;
     int sock;
     int ret;
     
@@ -243,31 +241,10 @@ static int http_response_cb(struct http_response *rsp,
         
         /* If downloading firmware, initialize flash */
         if (current_status == OTA_STATUS_DOWNLOADING) {
-            const struct flash_area *fa;
-            
-            ret = flash_area_open(FLASH_AREA_IMAGE_SECONDARY, &fa);
+            ret = flash_img_init(&image_ctx); 
+
             if (ret) {
                 LOG_ERR("Failed to open flash area: %d", ret);
-                set_error(OTA_ERR_FLASH_INIT);
-                return ret;
-            }
-            
-            /* Erase the flash area before writing */
-            ret = flash_area_erase(fa, 0, fa->fa_size);
-            if (ret) {
-                LOG_ERR("Failed to erase flash area: %d", ret);
-                flash_area_close(fa);
-                set_error(OTA_ERR_FLASH_INIT);
-                return ret;
-            }
-            
-            ret = stream_flash_init(&flash_ctx, fa->fa_dev, stream_buffer,
-                                  sizeof(stream_buffer), fa->fa_off,
-                                  fa->fa_size, NULL);
-            
-            if (ret) {
-                LOG_ERR("Failed to init stream flash: %d", ret);
-                flash_area_close(fa);
                 set_error(OTA_ERR_FLASH_INIT);
                 return ret;
             }
@@ -281,11 +258,11 @@ static int http_response_cb(struct http_response *rsp,
     if (headers_complete && current_status == OTA_STATUS_DOWNLOADING && 
         rsp->body_frag_len > 0) {
         
-        ret = stream_flash_buffered_write(&flash_ctx, 
-                                        rsp->body_frag_start,
-                                        rsp->body_frag_len, 
-                                        final_data == HTTP_DATA_FINAL);
-        
+        ret = flash_img_buffered_write(&image_ctx, 
+                rsp->body_frag_start,
+                rsp->body_frag_len, 
+                (final_data == HTTP_DATA_FINAL));
+
         if (ret < 0) {
             LOG_ERR("Flash write error: %d", ret);
             set_error(OTA_ERR_FLASH_WRITE);
@@ -493,18 +470,6 @@ ota_error_t ota_get_last_error(void)
 void ota_register_status_callback(void (*callback)(ota_status_t status))
 {
     status_callback = callback;
-}
-
-int ota_get_current_version(char *version, size_t len)
-{
-    if (!version || len < 8) {
-        return -EINVAL;
-    }
-    
-    snprintf(version, len, "%d.%d.%d", 
-             APP_VERSION_MAJOR, APP_VERSION_MINOR, APP_VERSION_PATCH);
-    
-    return 0;
 }
 
 int ota_confirm_image(void)

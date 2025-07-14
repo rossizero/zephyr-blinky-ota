@@ -70,15 +70,6 @@ ota_error_t ota_get_last_error(void);
 void ota_register_status_callback(void (*callback)(ota_status_t status));
 
 /**
- * @brief Get current running image version
- * 
- * @param version Buffer to store version string
- * @param len Length of buffer
- * @return 0 on success, negative error code on failure
- */
-int ota_get_current_version(char *version, size_t len);
-
-/**
  * @brief Confirm that the current image is working
  * 
  * This marks the current image as good, preventing rollback

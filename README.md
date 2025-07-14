@@ -13,13 +13,12 @@ This project demonstrates a Zephyr RTOS-based ESP32 application with WiFi connec
 - Python-based update server
 
 ## Project Structure
-
-- `zephyr-project/`: Main application code
-  - `src/`: Source files
-  - `include/`: Header files
-  - `boards/`: Board-specific overlay files
-  - `child_image/`: MCUboot configuration
 - `update-server/`: Python OTA update server
+- `zephyr-project/`: Main application code
+  - `app/src`: Source files
+  - `app/include/`: Header files
+  - `app/boards/`: Board-specific overlay files
+  - `sysbuild/`: MCUboot configuration
 
 ## Prerequisites
 

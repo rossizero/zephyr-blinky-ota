@@ -19,4 +19,6 @@ target_sources(app PRIVATE
     src/ota_mgmt.c
 )
 
-target_include_directories(app PRIVATE include)
+target_include_directories(app PRIVATE 
+    include
+)

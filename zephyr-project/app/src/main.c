@@ -1,6 +1,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/dfu/mcuboot.h>
+#include <img_mgmt/img_mgmt.h>
 
 #include "app_config.h"
 #include "blinky.h"
@@ -9,6 +10,7 @@
 
 LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
 
+extern const struct image_version image_version;
 // Define a work item for the delayed confirmation
 static void confirm_work_handler(struct k_work *work);
 static K_WORK_DELAYABLE_DEFINE(confirm_work, confirm_work_handler);
@@ -51,9 +53,7 @@ static void ota_status_changed(ota_status_t status)
 }
 
 int main(void)
-{
-    char version[16];
-    
+{    
     LOG_INF("====================================");
     LOG_INF("   ESP32 OTA Application Booting    ");
     LOG_INF("====================================");
@@ -70,14 +70,15 @@ int main(void)
         LOG_INF("Running a confirmed image.");
     }
 
-    // Initialize subsystems
-    //wifi_init(); // Your function to start WiFi
     ota_register_status_callback(ota_status_changed);
-    // ota_mgmt_init() is called automatically via SYS_INIT
 
-    ota_get_current_version(version, sizeof(version));
-    LOG_INF("Firmware Version: %s", version);
-
+    /*LOG_INF("FW Version: %d.%d.%d+%d\n",
+        image_version.iv_major,
+        image_version.iv_minor,
+        image_version.iv_revision,
+        image_version.iv_build_num);*/
+    //print_firmware_version();
+    print_running_firmware_version();
     LOG_INF("Main loop started. System is running.");
     while (1) {
         k_sleep(K_SECONDS(5));
@@ -92,4 +93,22 @@ int main(void)
     }
     
     return 0;
+}
+
+
+void print_running_firmware_version(void)
+{
+    struct image_header header;
+    int rc;
+    rc = boot_read_bank_header(0, &header, sizeof(header));
+    
+    if (rc == 0) {
+        LOG_INF("Running Firmware Version: %u.%u.%u+%u",
+                header.ih_ver.iv_major,
+                header.ih_ver.iv_minor,
+                header.ih_ver.iv_revision,
+                header.ih_ver.iv_build_num);
+    } else {
+        LOG_ERR("Failed to read image header from bank 0. Error: %d", rc);
+    }
 }
