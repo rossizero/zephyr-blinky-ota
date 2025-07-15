@@ -1,7 +1,6 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/dfu/mcuboot.h>
-#include <img_mgmt/img_mgmt.h>
 
 #include "app_config.h"
 #include "blinky.h"
@@ -52,6 +51,25 @@ static void ota_status_changed(ota_status_t status)
     }
 }
 
+void print_running_firmware_version(void)
+{
+    struct mcuboot_img_header header;
+    int rc;
+
+    rc = boot_read_bank_header(DT_FIXED_PARTITION_ID(DT_NODELABEL(slot0_partition)), &header, sizeof(header));
+
+    if (rc == 0) {
+        struct mcuboot_img_sem_ver *ver = &header.h.v1.sem_ver;
+        LOG_INF("Running Firmware Version: %u.%u.%u+%u",
+            ver->major,
+            ver->minor,
+            ver->revision,
+            ver->build_num);
+    } else {
+        LOG_ERR("Failed to read image header from bank 0. Error: %d", rc);
+    }
+}
+
 int main(void)
 {    
     LOG_INF("====================================");
@@ -71,14 +89,8 @@ int main(void)
     }
 
     ota_register_status_callback(ota_status_changed);
-
-    /*LOG_INF("FW Version: %d.%d.%d+%d\n",
-        image_version.iv_major,
-        image_version.iv_minor,
-        image_version.iv_revision,
-        image_version.iv_build_num);*/
-    //print_firmware_version();
     print_running_firmware_version();
+
     LOG_INF("Main loop started. System is running.");
     while (1) {
         k_sleep(K_SECONDS(5));
@@ -93,22 +105,4 @@ int main(void)
     }
     
     return 0;
-}
-
-
-void print_running_firmware_version(void)
-{
-    struct image_header header;
-    int rc;
-    rc = boot_read_bank_header(0, &header, sizeof(header));
-    
-    if (rc == 0) {
-        LOG_INF("Running Firmware Version: %u.%u.%u+%u",
-                header.ih_ver.iv_major,
-                header.ih_ver.iv_minor,
-                header.ih_ver.iv_revision,
-                header.ih_ver.iv_build_num);
-    } else {
-        LOG_ERR("Failed to read image header from bank 0. Error: %d", rc);
-    }
 }

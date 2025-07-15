@@ -2,6 +2,7 @@
     "files.associations": {
         "bootutil_public.h": "c",
         "*.ch": "c",
-        "*.s": "c"
+        "*.s": "c",
+        "mcuboot.h": "c"
     }
 }

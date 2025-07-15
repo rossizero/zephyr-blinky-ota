@@ -81,5 +81,10 @@
             label = "storage";
             reg = <0x00220000 0x00010000>;
         };
+
+        scratch_partition: partition@230000 {
+            label = "scratch";
+            reg = <0x00230000 0x00004000>;
+        };
     };
 };
