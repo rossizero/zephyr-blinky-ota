@@ -5,7 +5,7 @@
 #define APP_NAME "ESP32_BLINKY_OTA"
 #define APP_VERSION_MAJOR 1
 #define APP_VERSION_MINOR 0
-#define APP_VERSION_PATCH 12
+#define APP_VERSION_PATCH 13
 
 /* LED Configuration */
 #define LED_BLINK_INTERVAL_MS 1000

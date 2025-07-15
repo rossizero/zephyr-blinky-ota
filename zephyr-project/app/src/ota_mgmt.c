@@ -17,7 +17,7 @@
 #include "blinky.h"
 #include <zephyr/devicetree.h>
 #include <zephyr/dfu/flash_img.h>
-
+#include <stdio.h>
 
 LOG_MODULE_REGISTER(ota_mgmt, LOG_LEVEL_INF);
 
@@ -136,6 +136,45 @@ static void feed_watchdog(void)
     }
 }
 
+int ota_get_running_firmware_version(char *buf, size_t buf_size)
+{
+    struct mcuboot_img_header header;
+    int rc;
+
+    /*
+     * Use boot_fetch_active_slot() to reliably get the ID of the slot
+     * from which the current application was booted. This is more robust
+     * than hardcoding the slot0 ID, especially in revert scenarios.
+     */
+    uint8_t active_slot_id = boot_fetch_active_slot();
+
+    rc = boot_read_bank_header(active_slot_id, &header, sizeof(header));
+    if (rc != 0) {
+        LOG_ERR("Failed to read running image header from slot %u. Error: %d",
+                active_slot_id, rc);
+        return rc; // Propagate the error (-EIO is common for empty/bad slots)
+    }
+
+    /* Format the version string into the provided buffer */
+    rc = snprintf(buf, buf_size, "%u.%u.%u",
+                  header.h.v1.sem_ver.major,
+                  header.h.v1.sem_ver.minor,
+                  header.h.v1.sem_ver.revision);
+
+    /*
+     * snprintf returns the number of characters that *would have been* written.
+     * We must check if this number is greater than or equal to the buffer size,
+     * which indicates truncation.
+     */
+    if (rc < 0 || rc >= buf_size) {
+        LOG_ERR("Buffer too small for version string. Required: %d, available: %zu",
+                rc, buf_size);
+        return -ENOMEM; // No memory/space available
+    }
+
+    return 0; // Success
+}
+
 /* Create HTTP socket connection */
 static int create_http_socket(const char *host, int port)
 {
@@ -200,6 +239,11 @@ static int http_response_cb(struct http_response *rsp,
     
     /* Check if this is the first time we get body data */
     if (!headers_complete && rsp->body_frag_len > 0) {
+        if (rsp->http_status_code != 200) {
+            LOG_ERR("HTTP request failed with status: %d %s", rsp->http_status_code, rsp->http_status);
+            set_error(OTA_ERR_DOWNLOAD_FAILED);
+            return -1;
+        }
         headers_complete = true;
         content_length = rsp->content_length;
         LOG_INF("HTTP headers complete, content length: %lld", content_length);
@@ -217,8 +261,7 @@ static int http_response_cb(struct http_response *rsp,
                 
                 /* Compare with current version */
                 char current_ver[16];
-                snprintf(current_ver, sizeof(current_ver), "%d.%d.%d", 
-                        APP_VERSION_MAJOR, APP_VERSION_MINOR, APP_VERSION_PATCH);
+                int rc = ota_get_running_firmware_version(current_ver, sizeof(current_ver));
                 
                 if (strcmp(version.version, current_ver) != 0) {
                     LOG_INF("New version available: %s (current: %s)",

@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 # Default values
 DEFAULT_PORT = 8080
 DEFAULT_VERSION = "1.0.1"
-DEFAULT_FIRMWARE_PATH = "zephyr.bin"
+DEFAULT_FIRMWARE_PATH = "zephyr.signed.bin"
 
 class OTAHandler(BaseHTTPRequestHandler):
     def __init__(self, *args, version=DEFAULT_VERSION, firmware_path=DEFAULT_FIRMWARE_PATH, **kwargs):

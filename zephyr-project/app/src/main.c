@@ -51,25 +51,6 @@ static void ota_status_changed(ota_status_t status)
     }
 }
 
-void print_running_firmware_version(void)
-{
-    struct mcuboot_img_header header;
-    int rc;
-
-    rc = boot_read_bank_header(DT_FIXED_PARTITION_ID(DT_NODELABEL(slot0_partition)), &header, sizeof(header));
-
-    if (rc == 0) {
-        struct mcuboot_img_sem_ver *ver = &header.h.v1.sem_ver;
-        LOG_INF("Running Firmware Version: %u.%u.%u+%u",
-            ver->major,
-            ver->minor,
-            ver->revision,
-            ver->build_num);
-    } else {
-        LOG_ERR("Failed to read image header from bank 0. Error: %d", rc);
-    }
-}
-
 int main(void)
 {    
     LOG_INF("====================================");
@@ -89,7 +70,13 @@ int main(void)
     }
 
     ota_register_status_callback(ota_status_changed);
-    print_running_firmware_version();
+    char current_ver[16];
+    int rc = ota_get_running_firmware_version(current_ver, sizeof(current_ver));
+    if (rc == 0) {
+        LOG_INF("Current running version: %s", current_ver);
+    } else {
+        LOG_WRN("Somethings wrong with the version getter");
+    }
 
     LOG_INF("Main loop started. System is running.");
     while (1) {
