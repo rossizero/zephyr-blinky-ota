@@ -18,6 +18,8 @@
 #include <zephyr/devicetree.h>
 #include <zephyr/dfu/flash_img.h>
 #include <stdio.h>
+#include "watchdog_manager.h"
+
 
 LOG_MODULE_REGISTER(ota_mgmt, LOG_LEVEL_INF);
 
@@ -39,8 +41,7 @@ static int retry_count = 0;
 static int http_sock = -1;
 
 /* Watchdog */
-static const struct device *wdt;
-static int wdt_channel_id = -1;
+static int ota_task_handle = -1;
 
 /* Version parsing from JSON */
 struct version_info {
@@ -95,45 +96,6 @@ static void set_error(ota_error_t error)
 {
     last_error = error;
     update_status(OTA_STATUS_ERROR);
-}
-
-/* Setup watchdog timer */
-static void setup_watchdog(void)
-{
-    wdt = DEVICE_DT_GET_OR_NULL(DT_ALIAS(wdt0));
-    if (!wdt || !device_is_ready(wdt)) {
-        LOG_ERR("Watchdog device not found or not ready");
-        return;
-    }
-    
-    struct wdt_timeout_cfg wdt_config = {
-        .window.min = 0,
-        .window.max = 10000,  // 10 seconds
-        .callback = NULL,
-        .flags = WDT_FLAG_RESET_SOC,
-    };
-    
-    wdt_channel_id = wdt_install_timeout(wdt, &wdt_config);
-    if (wdt_channel_id < 0) {
-        LOG_ERR("Watchdog install error: %d", wdt_channel_id);
-        return;
-    }
-    
-    int ret = wdt_setup(wdt, WDT_OPT_PAUSE_HALTED_BY_DBG);
-    if (ret < 0) {
-        LOG_ERR("Watchdog setup error: %d", ret);
-        return;
-    }
-    
-    LOG_INF("Watchdog initialized with timeout of 10 seconds");
-}
-
-/* Feed the watchdog */
-static void feed_watchdog(void)
-{
-    if (wdt && wdt_channel_id >= 0) {
-        wdt_feed(wdt, wdt_channel_id);
-    }
 }
 
 int ota_get_running_firmware_version(char *buf, size_t buf_size)
@@ -235,8 +197,9 @@ static int http_response_cb(struct http_response *rsp,
     int ret = 0;
     
     /* Feed watchdog to prevent reset during download */
-    feed_watchdog();
-    
+    //feed_watchdog();
+    watchdog_manager_check_in(ota_task_handle);
+
     /* Check if this is the first time we get body data */
     if (!headers_complete && rsp->body_frag_len > 0) {
         if (rsp->http_status_code != 200) {
@@ -262,7 +225,6 @@ static int http_response_cb(struct http_response *rsp,
                 /* Compare with current version */
                 char current_ver[16];
                 int rc = ota_get_running_firmware_version(current_ver, sizeof(current_ver));
-                
                 if (strcmp(version.version, current_ver) != 0) {
                     LOG_INF("New version available: %s (current: %s)",
                            version.version, current_ver);
@@ -284,14 +246,6 @@ static int http_response_cb(struct http_response *rsp,
         
         /* If downloading firmware, initialize flash */
         if (current_status == OTA_STATUS_DOWNLOADING) {
-            ret = flash_img_init(&image_ctx); 
-
-            if (ret) {
-                LOG_ERR("Failed to open flash area: %d", ret);
-                set_error(OTA_ERR_FLASH_INIT);
-                return ret;
-            }
-            
             LOG_INF("Flash initialized for firmware download");
             total_downloaded = 0;
         }
@@ -322,10 +276,8 @@ static int http_response_cb(struct http_response *rsp,
         /* Check if download is complete */
         if (final_data == HTTP_DATA_FINAL) {
             LOG_INF("Firmware download complete: %zu bytes", total_downloaded);
-            update_status(OTA_STATUS_DOWNLOAD_COMPLETE);
-            
-            /* Apply update after a short delay */
-            k_work_schedule(&ota_check_work, K_SECONDS(1));
+            //update_status(OTA_STATUS_DOWNLOAD_COMPLETE);
+            //k_work_schedule(&ota_check_work, K_SECONDS(1));
         }
     }
     
@@ -390,16 +342,21 @@ static int perform_update(void)
     
     update_status(OTA_STATUS_DOWNLOADING);
     
+    int ret = flash_img_init(&image_ctx);
+    if (ret != 0) {
+        LOG_ERR("Failed to initialize flash context: %d", ret);
+        set_error(OTA_ERR_FLASH_INIT);
+        return ret;
+    }
     /* Create socket connection */
     http_sock = create_http_socket(OTA_SERVER_HOST, OTA_SERVER_PORT);
     if (http_sock < 0) {
         set_error(OTA_ERR_SERVER_CONNECT);
         return -ECONNREFUSED;
     }
-    
     /* Setup HTTP request for firmware download */
     memset(&http_req, 0, sizeof(http_req));
-    
+
     http_req.method = HTTP_GET;
     http_req.url = OTA_FIRMWARE_URL;
     http_req.host = OTA_SERVER_HOST;
@@ -408,16 +365,18 @@ static int perform_update(void)
     http_req.recv_buf = http_recv_buf;
     http_req.recv_buf_len = sizeof(http_recv_buf);
     
+    // ... setup http_req as before ...
     headers_complete = false;
-    
-    LOG_INF("Downloading firmware from http://%s:%d%s", 
-           OTA_SERVER_HOST, OTA_SERVER_PORT, OTA_FIRMWARE_URL);
-    
-    int ret = http_client_req(http_sock, &http_req, OTA_DOWNLOAD_TIMEOUT_MS, NULL);
-    
+    total_downloaded = 0; // Reset counters here
+
+    LOG_INF("Downloading firmware from http://%s:%d%s",
+        OTA_SERVER_HOST, OTA_SERVER_PORT, OTA_FIRMWARE_URL);
+
+    // This call is BLOCKING until the download is complete or times out.
+    ret = http_client_req(http_sock, &http_req, OTA_DOWNLOAD_TIMEOUT_MS, NULL);
+
     /* Close socket */
     zsock_close(http_sock);
-
     http_sock = -1;
     
     if (ret < 0) {
@@ -435,6 +394,13 @@ static int perform_update(void)
             update_status(OTA_STATUS_IDLE);
         }
     } else {
+        LOG_INF("Firmware download successful.");
+        update_status(OTA_STATUS_DOWNLOAD_COMPLETE);
+
+        // The download is fully complete, and the HTTP client is closed.
+        // The image_ctx is no longer in active use. NOW it is safe
+        // to schedule the final "apply" step.
+        k_work_schedule(&ota_check_work, K_MSEC(100)); // A short delay is fine.
         /* Reset retry counter on success */
         retry_count = 0;
     }
@@ -527,7 +493,7 @@ int ota_mgmt_init(void)
     k_work_init_delayable(&ota_check_work, ota_check_work_handler);
     
     /* Setup watchdog */
-    setup_watchdog();
+    ota_task_handle = watchdog_manager_register_task();
     
     /* 
      * The confirmation logic is now handled cleanly in main.c.

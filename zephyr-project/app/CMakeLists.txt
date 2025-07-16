@@ -17,6 +17,7 @@ target_sources(app PRIVATE
     src/blinky.c
     src/wifi_mgmt.c
     src/ota_mgmt.c
+    src/watchdog_mgmt.c
 )
 
 target_include_directories(app PRIVATE 

@@ -6,13 +6,14 @@
 #include "blinky.h"
 #include "wifi_mgmt.h"
 #include "ota_mgmt.h"
+#include "watchdog_mgmt.h"
 
 LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
 
-extern const struct image_version image_version;
 // Define a work item for the delayed confirmation
 static void confirm_work_handler(struct k_work *work);
 static K_WORK_DELAYABLE_DEFINE(confirm_work, confirm_work_handler);
+static int main_task_handle;
 
 static void confirm_work_handler(struct k_work *work)
 {
@@ -77,6 +78,11 @@ int main(void)
     } else {
         LOG_WRN("Somethings wrong with the version getter");
     }
+    bool ip_printed = false;
+
+    watchdog_manager_init(K_SECONDS(10));
+    LOG_INF("Watchdog initialized!");
+    main_task_handle = watchdog_manager_register_task();
 
     LOG_INF("Main loop started. System is running.");
     while (1) {
@@ -84,10 +90,13 @@ int main(void)
         
         char ip_str[16];
         int result = wifi_get_ip_address_public(ip_str, sizeof(ip_str));
-        if (result == 0) {
-            LOG_INF("IP: %s", ip_str);
-        } else {
-            LOG_INF("No IP");
+        if(!ip_printed) {
+            if (result == 0) {
+                LOG_INF("IP: %s", ip_str);
+                ip_printed = true;
+            } else {
+                LOG_INF("No IP");
+            }
         }
     }
     
