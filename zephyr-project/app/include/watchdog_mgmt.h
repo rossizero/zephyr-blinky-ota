@@ -37,4 +37,25 @@ int watchdog_manager_register_task(void);
  */
 void watchdog_manager_check_in(int task_handle);
 
+/**
+ * @brief Enables or disables watchdog monitoring for a specific task.
+ *
+ * When monitoring is disabled for a task, the manager will not expect
+ * it to check in. This is useful for tasks that may be legitimately
+ * idle or blocked for long periods (e.g., waiting for network).
+ * The task MUST be re-enabled before it becomes active again.
+ *
+ * @param task_handle The handle of the task to modify.
+ * @param enable      True to enable monitoring, false to disable.
+ */
+void watchdog_manager_enable_monitoring(int task_handle, bool enable);
+
+/**
+ * @brief Checks if monitoring is currently enabled for a task.
+ *
+ * @param task_handle The handle of the task.
+ * @return True if the task is being monitored, false otherwise.
+ */
+bool watchdog_manager_is_monitoring_enabled(int task_handle);
+
 #endif /* WATCHDOG_MANAGER_H */

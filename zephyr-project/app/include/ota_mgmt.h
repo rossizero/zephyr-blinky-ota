@@ -71,16 +71,6 @@ ota_error_t ota_get_last_error(void);
 void ota_register_status_callback(void (*callback)(ota_status_t status));
 
 /**
- * @brief Confirm that the current image is working
- * 
- * This marks the current image as good, preventing rollback
- * on the next reboot.
- * 
- * @return 0 on success, negative error code on failure
- */
-
-int ota_confirm_image(void);
-/**
  * @brief Get the version of the currently running firmware.
  *
  * This function reads the image header from the primary (active) slot,
@@ -96,6 +86,8 @@ int ota_confirm_image(void);
  * @return A negative error code from the underlying boot/flash functions on other failures.
  */
 int ota_get_running_firmware_version(char *buf, size_t buf_size);
+
+static void ota_enter_backoff_state(void);
 
 #ifdef __cplusplus
 }

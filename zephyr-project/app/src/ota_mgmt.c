@@ -9,7 +9,6 @@
 #include <zephyr/net/http/client.h>
 #include <zephyr/net/net_ip.h>
 #include <zephyr/data/json.h>
-#include <zephyr/drivers/watchdog.h>
 #include <string.h>
 #include "wifi_mgmt.h"
 #include "app_config.h"
@@ -18,7 +17,7 @@
 #include <zephyr/devicetree.h>
 #include <zephyr/dfu/flash_img.h>
 #include <stdio.h>
-#include "watchdog_manager.h"
+#include "watchdog_mgmt.h"
 
 
 LOG_MODULE_REGISTER(ota_mgmt, LOG_LEVEL_INF);
@@ -59,9 +58,9 @@ static void ota_check_work_handler(struct k_work *work);
 static int perform_update(void);
 static void update_status(ota_status_t new_status);
 static int apply_update(void);
-static void setup_watchdog(void);
-static void feed_watchdog(void);
 static int create_http_socket(const char *host, int port);
+static void ota_enter_backoff_state(void);
+
 
 /* Update OTA status and trigger callback if registered */
 static void update_status(ota_status_t new_status)
@@ -190,14 +189,11 @@ static int create_http_socket(const char *host, int port)
 }
 
 /* HTTP response callback */
-static int http_response_cb(struct http_response *rsp, 
-                           enum http_final_call final_data,
-                           void *user_data)
+static int http_response_cb(struct http_response *rsp, enum http_final_call final_data, void *user_data)
 {
     int ret = 0;
     
     /* Feed watchdog to prevent reset during download */
-    //feed_watchdog();
     watchdog_manager_check_in(ota_task_handle);
 
     /* Check if this is the first time we get body data */
@@ -231,7 +227,7 @@ static int http_response_cb(struct http_response *rsp,
                     update_status(OTA_STATUS_UPDATE_AVAILABLE);
                     
                     /* Start download after a short delay */
-                    k_work_schedule(&ota_check_work, K_SECONDS(10));
+                    k_work_schedule(&ota_check_work, K_SECONDS(5));
                 } else {
                     LOG_INF("Already running latest version");
                     update_status(OTA_STATUS_IDLE);
@@ -243,8 +239,7 @@ static int http_response_cb(struct http_response *rsp,
             
             return 0;
         }
-        
-        /* If downloading firmware, initialize flash */
+
         if (current_status == OTA_STATUS_DOWNLOADING) {
             LOG_INF("Flash initialized for firmware download");
             total_downloaded = 0;
@@ -276,8 +271,6 @@ static int http_response_cb(struct http_response *rsp,
         /* Check if download is complete */
         if (final_data == HTTP_DATA_FINAL) {
             LOG_INF("Firmware download complete: %zu bytes", total_downloaded);
-            //update_status(OTA_STATUS_DOWNLOAD_COMPLETE);
-            //k_work_schedule(&ota_check_work, K_SECONDS(1));
         }
     }
     
@@ -288,17 +281,18 @@ static int http_response_cb(struct http_response *rsp,
 static int check_for_update(void)
 {
     if (!wifi_is_connected()) {
-        LOG_WRN("WiFi not connected, skipping update check");
+        LOG_WRN("WiFi not connected (yet), skipping update check");
         return -ENOTCONN;
     }
     
     update_status(OTA_STATUS_CHECKING);
     
-    /* Create socket connection */
+    /* try to create socket connection */
     http_sock = create_http_socket(OTA_SERVER_HOST, OTA_SERVER_PORT);
     if (http_sock < 0) {
-        set_error(OTA_ERR_SERVER_CONNECT);
-        return -ECONNREFUSED;
+        LOG_ERR("Server connection failed. Entering 1-hour backoff.");
+        ota_enter_backoff_state();
+        return http_sock;
     }
     
     /* Setup HTTP request for version check */
@@ -314,18 +308,17 @@ static int check_for_update(void)
     
     headers_complete = false;
     
-    LOG_INF("Checking for updates at http://%s:%d%s", 
-           OTA_SERVER_HOST, OTA_SERVER_PORT, OTA_VERSION_URL);
-    
-    int ret = http_client_req(http_sock, &http_req, 5000, NULL);
+    LOG_INF("Checking for updates at http://%s:%d%s", OTA_SERVER_HOST, OTA_SERVER_PORT, OTA_VERSION_URL);
+    int ret = http_client_req(http_sock, &http_req, 5000, NULL); //blocks until done
     
     /* Close socket */
     zsock_close(http_sock);
     http_sock = -1;
     
+    /* in case something went wrong */
     if (ret < 0) {
-        LOG_ERR("Failed to connect to update server: %d", ret);
-        set_error(OTA_ERR_SERVER_CONNECT);
+        LOG_ERR("Server connection failed. Entering 1-hour backoff.");
+        ota_enter_backoff_state();
     }
     
     return ret;
@@ -335,23 +328,33 @@ static int check_for_update(void)
 static int perform_update(void)
 {
     LOG_INF("Tryning to download firmware");
+
     if (!wifi_is_connected()) {
         LOG_WRN("WiFi not connected, cannot download update");
+        ota_enter_backoff_state();
         return -ENOTCONN;
     }
     
     update_status(OTA_STATUS_DOWNLOADING);
     
-    int ret = flash_img_init(&image_ctx);
+    //int ret = flash_img_init(&image_ctx);
+    int ret = flash_img_init_id(&image_ctx, DT_FIXED_PARTITION_ID(DT_NODELABEL(slot1_partition)));
+
     if (ret != 0) {
         LOG_ERR("Failed to initialize flash context: %d", ret);
         set_error(OTA_ERR_FLASH_INIT);
+        ota_enter_backoff_state();
         return ret;
     }
+    uint8_t area_id = flash_img_get_upload_slot();
+    LOG_INF("Flash image using area ID: %d", area_id);
+
     /* Create socket connection */
     http_sock = create_http_socket(OTA_SERVER_HOST, OTA_SERVER_PORT);
     if (http_sock < 0) {
         set_error(OTA_ERR_SERVER_CONNECT);
+        LOG_ERR("Server connection failed. Entering 1-hour backoff.");
+        ota_enter_backoff_state();
         return -ECONNREFUSED;
     }
     /* Setup HTTP request for firmware download */
@@ -365,15 +368,12 @@ static int perform_update(void)
     http_req.recv_buf = http_recv_buf;
     http_req.recv_buf_len = sizeof(http_recv_buf);
     
-    // ... setup http_req as before ...
     headers_complete = false;
-    total_downloaded = 0; // Reset counters here
+    total_downloaded = 0; 
 
-    LOG_INF("Downloading firmware from http://%s:%d%s",
-        OTA_SERVER_HOST, OTA_SERVER_PORT, OTA_FIRMWARE_URL);
+    LOG_INF("Downloading firmware from http://%s:%d%s", OTA_SERVER_HOST, OTA_SERVER_PORT, OTA_FIRMWARE_URL);
 
-    // This call is BLOCKING until the download is complete or times out.
-    ret = http_client_req(http_sock, &http_req, OTA_DOWNLOAD_TIMEOUT_MS, NULL);
+    ret = http_client_req(http_sock, &http_req, OTA_DOWNLOAD_TIMEOUT_MS, NULL); // blocks until done
 
     /* Close socket */
     zsock_close(http_sock);
@@ -392,6 +392,7 @@ static int perform_update(void)
             LOG_ERR("Max retry attempts reached, giving up");
             retry_count = 0;
             update_status(OTA_STATUS_IDLE);
+            ota_enter_backoff_state();
         }
     } else {
         LOG_INF("Firmware download successful.");
@@ -423,6 +424,7 @@ static int apply_update(void)
     }
     
     LOG_INF("Update ready - rebooting in 3 seconds");
+    watchdog_manager_check_in(ota_task_handle);
     k_sleep(K_SECONDS(3));
     sys_reboot(SYS_REBOOT_WARM);
     
@@ -434,25 +436,37 @@ static void ota_check_work_handler(struct k_work *work)
 {
     ARG_UNUSED(work);
     
-    /* Feed watchdog */
-    feed_watchdog();
+    if (!watchdog_manager_is_monitoring_enabled(ota_task_handle)) {
+        LOG_INF("OTA is in backoff state. Will try again later.");
+        watchdog_manager_enable_monitoring(ota_task_handle, true);
+        update_status(OTA_STATUS_IDLE);
+        return;
+    }
+
+    watchdog_manager_check_in(ota_task_handle);
     
     switch (current_status) {
-    case OTA_STATUS_IDLE:
-        check_for_update();
-        break;
-        
-    case OTA_STATUS_UPDATE_AVAILABLE:
-        perform_update();
-        break;
-        
-    case OTA_STATUS_DOWNLOAD_COMPLETE:
-        apply_update();
-        break;
-        
-    default:
-        break;
+        case OTA_STATUS_IDLE:
+            check_for_update();
+            break;
+            
+        case OTA_STATUS_UPDATE_AVAILABLE:
+            perform_update();
+            break;
+            
+        case OTA_STATUS_DOWNLOAD_COMPLETE:
+            apply_update();
+            break;
+            
+        default:
+            break;
     }
+}
+
+static void ota_enter_backoff_state(void) {
+    watchdog_manager_enable_monitoring(ota_task_handle, false);
+    k_work_schedule(&ota_check_work, K_HOURS(1));
+    set_error(OTA_ERR_SERVER_CONNECT);
 }
 
 /* Public functions */
@@ -481,29 +495,17 @@ void ota_register_status_callback(void (*callback)(ota_status_t status))
     status_callback = callback;
 }
 
-int ota_confirm_image(void)
-{
-    return boot_write_img_confirmed();
-}
-
-// Ensure your ota_mgmt_init function looks like this:
 int ota_mgmt_init(void)
 {
-    /* Initialize OTA check work */
-    k_work_init_delayable(&ota_check_work, ota_check_work_handler);
-    
-    /* Setup watchdog */
     ota_task_handle = watchdog_manager_register_task();
-    
-    /* 
-     * The confirmation logic is now handled cleanly in main.c.
-     * We only schedule a check here if the image is already stable and confirmed.
-     */
+
+    k_work_init_delayable(&ota_check_work, ota_check_work_handler);
+
     if (boot_is_img_confirmed()) {
-       LOG_INF("Scheduling initial OTA check in 30 seconds.");
-       k_work_schedule(&ota_check_work, K_SECONDS(30));
+        LOG_INF("Scheduling initial OTA check in 30 seconds.");
+        k_work_schedule(&ota_check_work, K_SECONDS(30));
     }
-    
+
     LOG_INF("OTA management subsystem initialized");
     return 0;
 }

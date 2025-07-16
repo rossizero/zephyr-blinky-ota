@@ -1,4 +1,4 @@
-#include "watchdog_manager.h"
+#include "watchdog_mgmt.h"
 #include <zephyr/drivers/watchdog.h>
 #include <zephyr/logging/log.h>
 #include <stdatomic.h>
@@ -11,6 +11,7 @@ static const struct device *wdt_dev;
 static int wdt_channel_id;
 
 static atomic_uint g_task_check_ins[MAX_MONITORED_TASKS];
+static atomic_bool g_task_monitoring_enabled[MAX_MONITORED_TASKS];
 static atomic_int g_registered_tasks_count = ATOMIC_VAR_INIT(0);
 
 static struct k_timer wdt_mgr_timer;
@@ -20,19 +21,20 @@ static struct k_timer wdt_mgr_timer;
  */
 static void watchdog_manager_check_tasks(struct k_timer *timer)
 {
-    bool all_tasks_ok = true;
+    bool all_active_tasks_ok = true;
     int task_count = atomic_load(&g_registered_tasks_count);
 
     for (int i = 0; i < task_count; i++) {
-        // Exchange the flag: check if it was 1, and set it back to 0 atomically.
-        if (atomic_exchange(&g_task_check_ins[i], 0) == 0) {
-            // This task did NOT check in since the last cycle.
-            LOG_ERR("Watchdog: Task with handle %d failed to check in!", i);
-            all_tasks_ok = false;
+        // ONLY check tasks that are supposed to be active.
+        if (atomic_load(&g_task_monitoring_enabled[i])) {
+            if (atomic_exchange(&g_task_check_ins[i], 0) == 0) {
+                LOG_ERR("Watchdog: Monitored task %d failed to check in!", i);
+                all_active_tasks_ok = false;
+            }
         }
     }
 
-    if (all_tasks_ok) {
+    if (all_active_tasks_ok) {
         if (wdt_dev) {
             wdt_feed(wdt_dev, wdt_channel_id);
             LOG_DBG("All %d tasks checked in. Watchdog fed.", task_count);
@@ -53,7 +55,7 @@ int watchdog_manager_init(k_timeout_t check_interval)
 
     struct wdt_timeout_cfg wdt_config = {
         .window.min = 0,
-        .window.max = 10000, // 10-Sekunden-Hardware-Timeout
+        .window.max = 60000, // 60-Sekunden-Hardware-Timeout
         .callback = NULL,
         .flags = WDT_FLAG_RESET_SOC,
     };
@@ -68,7 +70,7 @@ int watchdog_manager_init(k_timeout_t check_interval)
     k_timer_init(&wdt_mgr_timer, watchdog_manager_check_tasks, NULL);
     k_timer_start(&wdt_mgr_timer, check_interval, check_interval);
 
-    LOG_INF("Watchdog Manager initialized. Check interval: %u ms, HW timeout: %u ms",
+    LOG_INF("Watchdog Manager initialized. Check interval: %llu ms, HW timeout: %u ms",
             check_interval.ticks, wdt_config.window.max);
 
     return 0;
@@ -84,6 +86,7 @@ int watchdog_manager_register_task(void)
     }
 
     // Initialisiere das Check-in-Flag auf 0. Der Task muss sofort einchecken.
+    atomic_store(&g_task_monitoring_enabled[handle], true);
     atomic_store(&g_task_check_ins[handle], 0);
     LOG_INF("Task registered with handle %d", handle);
     return handle;
@@ -95,4 +98,24 @@ void watchdog_manager_check_in(int task_handle)
         return; // Ungültiges Handle
     }
     atomic_store(&g_task_check_ins[task_handle], 1);
+}
+
+void watchdog_manager_enable_monitoring(int task_handle, bool enable)
+{
+    if (task_handle < 0 || task_handle >= MAX_MONITORED_TASKS) {
+        return;
+    }
+    atomic_store(&g_task_monitoring_enabled[task_handle], enable);
+    if (enable) {
+        // When re-enabling, reset the check-in flag to force an immediate check-in.
+        atomic_store(&g_task_check_ins[task_handle], 0);
+    }
+}
+
+bool watchdog_manager_is_monitoring_enabled(int task_handle)
+{
+    if (task_handle < 0 || task_handle >= MAX_MONITORED_TASKS) {
+        return false;
+    }
+    return atomic_load(&g_task_monitoring_enabled[task_handle]);
 }

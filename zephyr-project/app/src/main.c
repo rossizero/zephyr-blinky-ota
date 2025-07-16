@@ -22,6 +22,7 @@ static void confirm_work_handler(struct k_work *work)
         LOG_ERR("Failed to confirm image! This may cause a revert on next boot.");
     } else {
         LOG_INF("Image confirmed successfully. The update is now permanent.");
+        ota_check_for_update();
     }
 }
 
@@ -80,17 +81,18 @@ int main(void)
     }
     bool ip_printed = false;
 
-    watchdog_manager_init(K_SECONDS(10));
+    watchdog_manager_init(K_SECONDS(30));
     LOG_INF("Watchdog initialized!");
     main_task_handle = watchdog_manager_register_task();
 
     LOG_INF("Main loop started. System is running.");
     while (1) {
         k_sleep(K_SECONDS(5));
-        
-        char ip_str[16];
-        int result = wifi_get_ip_address_public(ip_str, sizeof(ip_str));
+        watchdog_manager_check_in(main_task_handle);
+
         if(!ip_printed) {
+            char ip_str[16];
+            int result = wifi_get_ip_address_public(ip_str, sizeof(ip_str));
             if (result == 0) {
                 LOG_INF("IP: %s", ip_str);
                 ip_printed = true;
