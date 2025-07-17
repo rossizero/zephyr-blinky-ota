@@ -97,6 +97,50 @@ static void set_error(ota_error_t error)
     update_status(OTA_STATUS_ERROR);
 }
 
+void debug_image_headers(void)
+{
+    LOG_INF("=== Image Header Debug ===");
+    
+    struct mcuboot_img_header header;
+    int ret;
+    
+    /* Slot0 (aktuell laufend) prüfen */
+    ret = boot_read_bank_header(DT_FIXED_PARTITION_ID(DT_NODELABEL(slot0_partition)), &header, sizeof(header));
+    if (ret == 0) {
+        LOG_INF("Slot0 - Image size: %u", header.h.v1.image_size);
+        LOG_INF("Slot0 - Version: %u.%u.%u+%u", 
+               header.h.v1.sem_ver.major,
+               header.h.v1.sem_ver.minor,
+               header.h.v1.sem_ver.revision,
+               header.h.v1.sem_ver.build_num);
+    } else {
+        LOG_ERR("Failed to read slot0 header: %d", ret);
+    }
+    
+    /* Slot1 (OTA Update) prüfen */
+    ret = boot_read_bank_header(DT_FIXED_PARTITION_ID(DT_NODELABEL(slot1_partition)), &header, sizeof(header));
+    if (ret == 0) {
+        LOG_INF("✓ Slot1 - Valid image found!");
+        LOG_INF("Slot1 - Image size: %u", header.h.v1.image_size);
+        LOG_INF("Slot1 - Version: %u.%u.%u+%u", 
+               header.h.v1.sem_ver.major,
+               header.h.v1.sem_ver.minor,
+               header.h.v1.sem_ver.revision,
+               header.h.v1.sem_ver.build_num);
+    } else {
+        LOG_ERR("✗ Slot1 - No valid image found: %d", ret);
+        
+        /* Raw Flash-Daten zur Diagnose lesen */
+        const struct flash_area *fa;
+        if (flash_area_open(DT_FIXED_PARTITION_ID(DT_NODELABEL(slot1_partition)), &fa) == 0) {
+            uint32_t magic;
+            flash_area_read(fa, 0, &magic, sizeof(magic));
+            LOG_ERR("Slot1 raw magic: 0x%08x (expected: 0x96f3b83d)", magic);
+            flash_area_close(fa);
+        }
+    }
+}
+
 int ota_get_running_firmware_version(char *buf, size_t buf_size)
 {
     struct mcuboot_img_header header;
@@ -339,6 +383,7 @@ static int perform_update(void)
     
     //int ret = flash_img_init(&image_ctx);
     int ret = flash_img_init_id(&image_ctx, DT_FIXED_PARTITION_ID(DT_NODELABEL(slot1_partition)));
+    LOG_INF("area ID of slot1: %d", DT_FIXED_PARTITION_ID(DT_NODELABEL(slot1_partition)));
 
     if (ret != 0) {
         LOG_ERR("Failed to initialize flash context: %d", ret);
@@ -346,6 +391,7 @@ static int perform_update(void)
         ota_enter_backoff_state();
         return ret;
     }
+
     uint8_t area_id = flash_img_get_upload_slot();
     LOG_INF("Flash image using area ID: %d", area_id);
 
@@ -414,6 +460,30 @@ static int apply_update(void)
 {
     update_status(OTA_STATUS_APPLYING);
     
+    LOG_INF("=== Boot Status Debug ===");
+    int swap_type = mcuboot_swap_type();
+    LOG_INF("Current swap type: %d", swap_type);
+
+    const struct flash_area *fa;
+    uint32_t magic;
+    int ret_dbg;
+    
+    
+    /* Slot1 direkt aus Flash lesen */
+    ret_dbg = flash_area_open(DT_FIXED_PARTITION_ID(DT_NODELABEL(slot1_partition)), &fa);
+    if (ret_dbg != 0) {
+        LOG_ERR("Cannot open slot1: %d", ret_dbg);
+        return ret_dbg;
+    }
+    
+    /* Erste 4 Bytes lesen (das ist der Magic-Wert) */
+    ret_dbg = flash_area_read(fa, 0, &magic, sizeof(magic));
+    if (ret_dbg == 0) {
+        LOG_INF("Slot1 - First 4 bytes (magic): 0x%08x", magic);
+    }
+
+    debug_image_headers();
+
     /* Mark image for testing */
     int ret = boot_request_upgrade(BOOT_UPGRADE_TEST);
     
