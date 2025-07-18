@@ -1,15 +1,17 @@
 manifest:
   defaults:
     remote: upstream
-
   remotes:
     - name: upstream
       url-base: https://github.com/zephyrproject-rtos
-
+    - name: mcuboot
+      url-base: https://github.com/mcu-tools
   projects:
     - name: zephyr
       remote: upstream
-      revision: main  # TODO not for prod
+      revision: main
       import: true
-    - name: app
-      path: app     
+    - name: mcuboot
+      remote: mcuboot
+      revision: main  # oder v2.1.0 für stabile Version
+      path: bootloader/mcuboot

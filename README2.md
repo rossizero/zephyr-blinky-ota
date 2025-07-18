@@ -19,3 +19,16 @@ imgtool keygen -k root-rsa-2048.pem -t rsa-2048
 # To build and flash the first "factory" image
 .\build.ps1 -Clean -Flash -COMPort 10
 ```
+
+
+```
+in /zephyr-project
+python -m venv venv
+venv/Scripts\Activate.ps1
+pip install west
+west init .
+west update
+west zephyr-export
+evtl. wg. permissions: pip cache purge
+pip install -r zephyr/scripts/requirements.txt
+```
