@@ -97,6 +97,44 @@ static void set_error(ota_error_t error)
     update_status(OTA_STATUS_ERROR);
 }
 
+/* Direkte Boot-Trailer Manipulation */
+static int manual_boot_request_upgrade(void)
+{
+    const struct flash_area *fa;
+    int ret;
+    
+    ret = flash_area_open(DT_FIXED_PARTITION_ID(DT_NODELABEL(slot1_partition)), &fa);
+    if (ret) {
+        LOG_ERR("Cannot open slot1: %d", ret);
+        return ret;
+    }
+    
+    /* Boot-Trailer am Ende von Slot1 schreiben */
+    struct {
+        uint8_t image_ok;
+        uint8_t copy_done;
+        uint8_t reserved[14];
+        uint32_t magic;
+    } __packed trailer = {
+        .image_ok = 0x01,     // BOOT_FLAG_SET
+        .copy_done = 0xFF,    // BOOT_FLAG_UNSET
+        .magic = 0x96f3b83c   // BOOT_MAGIC
+    };
+    
+    size_t trailer_offset = fa->fa_size - sizeof(trailer);
+    
+    ret = flash_area_write(fa, trailer_offset, &trailer, sizeof(trailer));
+    if (ret) {
+        LOG_ERR("Failed to write boot trailer: %d", ret);
+        flash_area_close(fa);
+        return ret;
+    }
+    
+    LOG_INF("✓ Boot trailer written manually");
+    flash_area_close(fa);
+    return 0;
+}
+
 void debug_image_headers(void)
 {
     LOG_INF("=== Image Header Debug ===");
@@ -486,7 +524,7 @@ static int apply_update(void)
 
     /* Mark image for testing */
     int ret = boot_request_upgrade(BOOT_UPGRADE_TEST);
-    
+    //int ret = manual_boot_request_upgrade();
     if (ret != 0) {
         LOG_ERR("Failed to request upgrade: %d", ret);
         set_error(OTA_ERR_APPLY_UPDATE);
@@ -496,7 +534,7 @@ static int apply_update(void)
     LOG_INF("Update ready - rebooting in 3 seconds");
     watchdog_manager_check_in(ota_task_handle);
     k_sleep(K_SECONDS(3));
-    sys_reboot(SYS_REBOOT_WARM);
+    sys_reboot(SYS_REBOOT_WARM); //SYS_REBOOT_COLD
     
     return 0; /* Will never reach here */
 }

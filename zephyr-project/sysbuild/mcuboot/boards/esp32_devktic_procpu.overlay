@@ -1,5 +1,10 @@
+/*
+ * MCUboot-specific hardware configuration and flash layout.
+ * This partition map MUST be identical to the one in the application's overlay.
+ */
 / {
     chosen {
+        /* Tells Zephyr where the MCUboot code itself is located. */
         zephyr,code-partition = &mcuboot_partition;
     };
 };
