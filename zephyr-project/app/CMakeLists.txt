@@ -20,6 +20,8 @@ target_sources(app PRIVATE
     src/watchdog_mgmt.c
 )
 
+#set(DTC_OVERLAY_FILE ${CMAKE_CURRENT_SOURCE_DIR}/boards/${BOARD}.overlay)
+
 target_include_directories(app PRIVATE 
     include
 )

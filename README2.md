@@ -31,4 +31,5 @@ west update
 west zephyr-export
 evtl. wg. permissions: pip cache purge
 pip install -r zephyr/scripts/requirements.txt
+west blobs fetch hal_espressif
 ```

@@ -15,3 +15,7 @@ manifest:
       remote: mcuboot
       revision: main  # oder v2.1.0 für stabile Version
       path: bootloader/mcuboot
+    - name: tinycrypt
+      path: modules/crypto/tinycrypt
+      remote: mcu-tools
+      revision: main
