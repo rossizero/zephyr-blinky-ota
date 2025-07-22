@@ -37,3 +37,4 @@ west blobs fetch hal_espressif
 TODO:
 * find out why I can't name the /sysbuild/mcuboot.overlay a board specific name like mcuboot_esp32_devkitc_esp32_procpu.overlay
 * find out how to set the key.pem path relative without west searching for it in the mcuboot repo /bootloader/mcuboot...
+* find out why signing with rsa and ed25519 doesnt work (IRAM overflow) but using ecdsa 256 it only uses ~33KB IRAM
