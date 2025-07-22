@@ -33,3 +33,7 @@ evtl. wg. permissions: pip cache purge
 pip install -r zephyr/scripts/requirements.txt
 west blobs fetch hal_espressif
 ```
+
+TODO:
+* find out why I can't name the /sysbuild/mcuboot.overlay a board specific name like mcuboot_esp32_devkitc_esp32_procpu.overlay
+* find out how to set the key.pem path relative without west searching for it in the mcuboot repo /bootloader/mcuboot...

@@ -1,0 +1,100 @@
+/*
+ * Application-specific hardware configuration and flash layout.
+ * The flash partition map here MUST match the one in the .yml file.
+ */
+
+/ {
+    /* Board-specific hardware customization for your application */
+    leds {
+        compatible = "gpio-leds";
+        status_led: led_0 {
+            gpios = <&gpio0 2 GPIO_ACTIVE_HIGH>;
+            label = "Status LED";
+        };
+    };
+
+    aliases {
+        led0 = &status_led;
+        watchdog0 = &wdt0;
+    };
+
+    chosen {
+        zephyr,console = &uart0;
+        zephyr,shell-uart = &uart0;
+        zephyr,code-partition = &slot0_partition; /* Tells Zephyr where the app runs */
+    };
+};
+
+&uart0 {
+    status = "okay";
+    current-speed = <115200>;
+};
+
+&wifi {
+    status = "okay";
+};
+
+&wdt0 {
+    status = "okay";
+};
+
+&flash0 {
+    /* We completely replace the default partitions with our own. */
+    /delete-node/ partitions;
+
+    partitions {
+        compatible = "fixed-partitions";
+        #address-cells = <1>;
+        #size-cells = <1>;
+
+        boot_partition: partition@1000 {
+            label = "mcuboot";
+            reg = <0x00001000 0x0000F000>;
+        };
+
+        /* Standard ESP32 partitions */
+        nvs_partition: partition@10000 {
+            label = "nvs";
+            reg = <0x00010000 0x00004000>; /* 16 KB */
+        };
+
+        otadata_partition: partition@14000 {
+            label = "otadata";
+            reg = <0x00014000 0x00002000>; /* 8 KB */
+        };
+
+        phy_init_partition: partition@16000 {
+            label = "phy_init";
+            reg = <0x00016000 0x00001000>; /* 4 KB */
+        };
+
+        /*
+         * Application image slots for OTA.
+         * image-0 is the primary slot, image-1 is the update slot.
+         */
+        slot0_partition: partition@20000 {
+            label = "image-0";
+            reg = <0x00020000 0x00100000>; /* 1 MB */
+        };
+
+        slot1_partition: partition@120000 {
+            label = "image-1";
+            reg = <0x00120000 0x00100000>; /* 1 MB */
+        };
+
+        /* Partition for application data (e.g., file system). */
+        storage_partition: partition@220000 {
+            label = "storage";
+            reg = <0x00220000 0x00010000>; /* 64 KB */
+        };
+
+        /*
+         * Scratch partition used by MCUBoot during swapping.
+         * Optional but recommended for reliability.
+         */
+        scratch_partition: partition@230000 {
+            label = "scratch";
+            reg = <0x00230000 0x00010000>; /* 64 KB */
+        };
+    };
+};
