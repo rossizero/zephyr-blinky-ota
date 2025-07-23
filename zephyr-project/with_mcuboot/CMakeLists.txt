@@ -10,4 +10,17 @@ project(sample_with_mcuboot)
 # used when building MCUboot.
 test_sysbuild()
 
-target_sources(app PRIVATE src/main.c)
+# Fügt Ihre C-Quelldateien zum "app"-Ziel hinzu.
+target_sources(app PRIVATE
+    src/main.c
+    src/blinky.c
+    src/wifi_mgmt.c
+    src/ota_mgmt.c
+    src/watchdog_mgmt.c
+)
+
+#set(DTC_OVERLAY_FILE ${CMAKE_CURRENT_SOURCE_DIR}/boards/${BOARD}.overlay)
+
+target_include_directories(app PRIVATE 
+    include
+)

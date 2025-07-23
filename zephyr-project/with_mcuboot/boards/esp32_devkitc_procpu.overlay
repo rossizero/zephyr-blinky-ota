@@ -38,63 +38,46 @@
     status = "okay";
 };
 
-&flash0 {
-    /* We completely replace the default partitions with our own. */
-    /delete-node/ partitions;
 
+&flash0 {
+    /*
+     * We define a completely new set of partitions, tailored for MCUboot
+     * in swap-scratch mode.
+     */
+    /delete-node/ partitions;
     partitions {
         compatible = "fixed-partitions";
         #address-cells = <1>;
         #size-cells = <1>;
 
-        boot_partition: partition@1000 {
+        /* Partition for the bootloader itself. Starts at 64K offset. */
+        boot_partition: partition@10000 {
             label = "mcuboot";
-            reg = <0x00001000 0x0000F000>;
+            reg = <0x10000 0x10000>; /* 64 KB */
         };
 
-        /* Standard ESP32 partitions */
-        nvs_partition: partition@10000 {
-            label = "nvs";
-            reg = <0x00010000 0x00004000>; /* 16 KB */
-        };
-
-        otadata_partition: partition@14000 {
-            label = "otadata";
-            reg = <0x00014000 0x00002000>; /* 8 KB */
-        };
-
-        phy_init_partition: partition@16000 {
-            label = "phy_init";
-            reg = <0x00016000 0x00001000>; /* 4 KB */
-        };
-
-        /*
-         * Application image slots for OTA.
-         * image-0 is the primary slot, image-1 is the update slot.
-         */
+        /* Primary application slot. */
         slot0_partition: partition@20000 {
             label = "image-0";
-            reg = <0x00020000 0x00100000>; /* 1 MB */
+            reg = <0x20000 0xE0000>; /* 896 KB */
         };
 
-        slot1_partition: partition@120000 {
+        /* Secondary application slot (for the update). */
+        slot1_partition: partition@100000 {
             label = "image-1";
-            reg = <0x00120000 0x00100000>; /* 1 MB */
+            reg = <0x100000 0xE0000>; /* 896 KB */
         };
 
-        /* Partition for application data (e.g., file system). */
-        storage_partition: partition@220000 {
+        /* Scratch partition for swapping images. Label is critical! */
+        scratch_partition: partition@1E0000 {
+            label = "image-scratch"; /* MUST be "image-scratch" for Kconfig */
+            reg = <0x1E0000 0x20000>;  /* 128 KB */
+        };
+
+        /* Optional partition for a file system or other data. */
+        storage_partition: partition@200000 {
             label = "storage";
-            reg = <0x00220000 0x00010000>; /* 64 KB */
-        };
-
-        /*
-         * Scratch partition used by MCUBoot during swapping.
-         * Optional but recommended for reliability.
-         */
-        scratch_partition: partition@230000 {
-            label = "scratch";
-            reg = <0x00230000 0x00010000>; /* 64 KB */
+            reg = <0x200000 0x10000>; /* 64 KB */
         };
     };
 };
