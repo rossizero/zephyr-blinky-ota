@@ -42,3 +42,5 @@ TODO:
 CONFIG_MBEDTLS=y
 CONFIG_BOOTUTIL_USE_MBED_TLS=y```
 * find out if mcuboot.overlay is necessary -> I read that it is, to activate MCUBOOT_BOOTLOADER_MODE_SWAP_SCRATCH in mcuboot.conf and not via SB_MCUBOOT_BOOTLOADER_MODE_SWAP_SCRATCH in sysbuild.conf, but it never worked and made a change...
+* find out why my custom overlays broke the mcuboot upgrade process
+* find out why it only boots from the latest version after the second run/download
