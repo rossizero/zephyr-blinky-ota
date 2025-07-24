@@ -1,4 +1,8 @@
 # ESP32 Blinky with OTA Updates
+* Sysbuild intro: https://academy.nordicsemi.com/courses/nrf-connect-sdk-intermediate/lessons/lesson-8-sysbuild/topic/sysbuild-explained/
+* List of most SB_CONFIG options: https://docs.nordicsemi.com/bundle/ncs-latest/page/nrf/releases_and_maturity/migration/migration_sysbuild.html
+* or `west build -t sysbuild_guiconfig`
+* also cool: https://docs.nordicsemi.com/bundle/ncs-2.9.0/page/zephyr/build/sysbuild/index.html#zephyr_application_configuration
 
 This project demonstrates a Zephyr RTOS-based ESP32 application with WiFi connectivity and Over-The-Air (OTA) firmware update capabilities. The application blinks an LED, connects to WiFi, and periodically checks for firmware updates from a local update server.
 
@@ -119,5 +123,11 @@ TODO:
 CONFIG_MBEDTLS=y
 CONFIG_BOOTUTIL_USE_MBED_TLS=y```
 * find out if mcuboot.overlay is necessary -> I read that it is, to activate MCUBOOT_BOOTLOADER_MODE_SWAP_SCRATCH in mcuboot.conf and not via SB_MCUBOOT_BOOTLOADER_MODE_SWAP_SCRATCH in sysbuild.conf, but it never worked and made a change...
+* mcuboot.conf not merged correctly (e.g when setting encryption type and key path, works only via sysbuild.conf)
+* same with boards/esp32_devkitc_procpu.conf, it is being recognized but has no power to do anything
+* same with /mcuboot/prj.conf
+* but in /app/boards/*.conf for example CONFIG_REBOOT can be overridden...
+* /sysbuild/mcuboot/app.overlay correct / what for? (https://docs.nordicsemi.com/bundle/ncs-2.9.0/page/zephyr/build/sysbuild/index.html#zephyr_application_configuration)
 * find out why my custom overlays broke the mcuboot upgrade process
 * find out why it only boots from the latest version after the second run/download
+* for the c3 board: `error message undefined reference to '__atomic_exchange_4' and undefined reference to '__atomic_fetch_add_4'`
