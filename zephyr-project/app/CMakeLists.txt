@@ -1,15 +1,14 @@
-# app/CMakeLists.txt (Korrigierte und vollständige Version)
+# SPDX-License-Identifier: Apache-2.0
 
-# Definiert die minimale CMake-Version
 cmake_minimum_required(VERSION 3.20.0)
 
-# Findet das Zephyr-Paket und lädt dessen CMake-Funktionen.
-# Dies ist auch innerhalb von Sysbuild für jede Anwendung notwendig.
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
+project(sample_with_mcuboot)
 
-# Definiert den Namen dieses spezifischen Anwendungs-Projekts.
-# Der Name MUSS mit dem Ordnernamen übereinstimmen.
-project(app)
+# Verify that this sample is built through sysbuild to ensure MCUboot is
+# automatically included and that sample specific MCUboot configurations are
+# used when building MCUboot.
+test_sysbuild()
 
 # Fügt Ihre C-Quelldateien zum "app"-Ziel hinzu.
 target_sources(app PRIVATE

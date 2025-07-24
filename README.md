@@ -18,7 +18,7 @@ This project demonstrates a Zephyr RTOS-based ESP32 application with WiFi connec
   - `app/src`: Source files
   - `app/include/`: Header files
   - `app/boards/`: Board-specific overlay files
-  - `sysbuild/`: MCUboot configuration
+  - `app/sysbuild/`: MCUboot configuration
 
 ## Prerequisites
 
@@ -60,16 +60,6 @@ west flash -d build_app
 west sign -t imgtool -- keygen -k root-rsa-2048.pem -t rsa-2048
 ```
 
-```powershell
-# Build the firmware
-./build.ps1
-
-# Clean and build
-./build.ps1 -clean
-
-# Build and flash
-./build.ps1 -flash
-```
 
 ### Manual Building
 
@@ -110,52 +100,36 @@ cd update-server
 python ota_server.py --version 1.0.1 --firmware firmware.bin
 ```
 
-### Testing OTA Updates
+```
+in /zephyr-project
+python -m venv venv
+venv/Scripts\Activate.ps1
+pip install west
+west init .
+west update
+west zephyr-export
+evtl. wg. permissions: pip cache purge
+pip install -r zephyr/scripts/requirements.txt
+west blobs fetch hal_espressif
+```
 
-1. Flash the initial firmware (version 1.0.0) to your ESP32 device
-2. Prepare a new firmware version (1.0.1)
-3. Start the update server
-4. The device will automatically check for updates and download the new firmware
-5. After downloading, the device will reboot into the new firmware
-6. If the new firmware works correctly, it will be confirmed after 30 seconds
-7. If the new firmware fails, the device will automatically roll back to the previous version
+```
+west flash --erase
+west flash --esp-device COM10
+```
 
-## OTA Implementation Details
-
-### Partition Layout
-
-The ESP32 flash is partitioned as follows:
-
-- Bootloader (64KB): MCUboot bootloader
-- Storage (32KB): For configuration data
-- Application Slot 0 (1MB): Active firmware
-- Application Slot 1 (1MB): Update target
-- Scratch Area (256KB): For swap-based updates
-
-### Update Workflow
-
-1. Device connects to WiFi
-2. Device periodically checks for updates from the server
-3. If a new version is available, the device downloads the firmware
-4. The firmware is written to the secondary partition
-5. The device reboots into the new firmware
-6. If the new firmware runs successfully for 30 seconds, it is confirmed
-7. If the new firmware fails, the device rolls back to the previous version
-
-### LED Status Indicators
-
-- Normal blinking (1Hz): Regular operation
-- Slow blinking (0.5Hz): Downloading firmware
-- Fast blinking (10Hz): Applying update
-- Rapid blinking (4Hz): Error state
-
-## Troubleshooting
-
-- **WiFi Connection Issues**: Check your WiFi credentials in `app_config.h`
-- **Update Server Not Found**: Verify the server IP address in `app_config.h`
-- **Flash Errors**: Ensure your ESP32 has sufficient flash memory (4MB recommended)
-- **Bootloader Errors**: Check MCUboot configuration in `child_image/mcuboot/prj.conf`
-
-## License
-
-This project is licensed under the Apache License 2.0.
+```
+pip install imgtool
+imgtool keygen -k /keys/[name.pem] -t [type]
+imgtool verify .\build\app\zephyr\zephyr.signed.bin -k [keyfile]
+```
+TODO:
+* find out why I can't name the /sysbuild/mcuboot.overlay a board specific name like mcuboot_esp32_devkitc_esp32_procpu.overlay
+* find out how to set the key.pem path relative without west searching for it in the mcuboot repo /bootloader/mcuboot...
+* find out why signing with rsa and ed25519 doesnt work (IRAM overflow) but using ecdsa 256 it only uses ~33KB IRAM
+* try to disable tinycrypt and enable: ```CONFIG_TINYCRYPT=n
+CONFIG_MBEDTLS=y
+CONFIG_BOOTUTIL_USE_MBED_TLS=y```
+* find out if mcuboot.overlay is necessary -> I read that it is, to activate MCUBOOT_BOOTLOADER_MODE_SWAP_SCRATCH in mcuboot.conf and not via SB_MCUBOOT_BOOTLOADER_MODE_SWAP_SCRATCH in sysbuild.conf, but it never worked and made a change...
+* find out why my custom overlays broke the mcuboot upgrade process
+* find out why it only boots from the latest version after the second run/download
