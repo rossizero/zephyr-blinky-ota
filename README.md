@@ -60,7 +60,9 @@ west flash -d build_app
 west sign -t imgtool -- keygen -k root-rsa-2048.pem -t rsa-2048
 ```
 
-
+```
+west build -t guiconfig
+```
 ### Manual Building
 
 ```bash
@@ -72,20 +74,6 @@ west flash
 ```
 
 ## OTA Update Process
-
-### Preparing a New Firmware Version
-
-1. Update the version number in `zephyr-project/src/app_config.h`
-2. Build the firmware with the OTA flag:
-
-```powershell
-./build.ps1 -ota -version 1.0.1
-```
-
-This will:
-- Update the version number in the code
-- Build the firmware
-- Copy the firmware binary to the update-server directory
 
 ### Starting the Update Server
 
