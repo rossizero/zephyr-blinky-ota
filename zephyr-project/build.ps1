@@ -23,7 +23,6 @@ else {
 
 & west $westArgs
 imgtool verify .\build\app\zephyr\zephyr.signed.bin
-imgtool verify .\build\mcuboot\zephyr\zephyr.signed.bin
 
 #west build -b esp32_devkitc/esp32/procpu --sysbuild app -p always | Tee-Object -FilePath build.log
 #west build -b esp32_devkitc/esp32/procpu --sysbuild -p always -- -DSB_CONFIG_BOOTLOADER_MCUBOOT=y -DSB_CONFIG_BOOT_SIGNATURE_KEY_FILE="sysbuild/mcuboot/root-rsa-2048.pem"
