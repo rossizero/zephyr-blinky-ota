@@ -79,12 +79,7 @@ int main(void)
     } else {
         LOG_WRN("Somethings wrong with the version getter");
     }
-    rc = ota_get_running_firmware_version2(current_ver, sizeof(current_ver));
-    if (rc == 0) {
-        LOG_INF("Current running version: %s", current_ver);
-    } else {
-        LOG_WRN("Somethings wrong with the version getter2");
-    }
+    
     bool ip_printed = false;
 
     LOG_INF("Main loop started. System is running.");

@@ -142,5 +142,9 @@ if __name__ == '__main__':
     if args.verbose:
         logger.setLevel(logging.DEBUG)
 
-    version_number = get_image_version(args.firmware)
+    version_number = "13.0.0"
+    try:
+        version_number = get_image_version(args.firmware)
+    except:
+        pass
     run_server(version_number, args.port, args.firmware)
