@@ -6,6 +6,7 @@
 #include "blinky.h"
 #include "wifi_mgmt.h"
 #include "ota_mgmt.h"
+#include <zephyr/linker/linker-defs.h>
 
 LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
 
@@ -68,6 +69,7 @@ int main(void)
     } else {
         LOG_INF("Running a confirmed image.");
     }
+    LOG_INF("Address of sample %p\n", (void *)__rom_region_start);
 
     ota_register_status_callback(ota_status_changed);
     char current_ver[16];
@@ -77,12 +79,18 @@ int main(void)
     } else {
         LOG_WRN("Somethings wrong with the version getter");
     }
+    rc = ota_get_running_firmware_version2(current_ver, sizeof(current_ver));
+    if (rc == 0) {
+        LOG_INF("Current running version: %s", current_ver);
+    } else {
+        LOG_WRN("Somethings wrong with the version getter2");
+    }
     bool ip_printed = false;
 
     LOG_INF("Main loop started. System is running.");
     while (1) {
         k_sleep(K_SECONDS(5));
-        
+
         if(!ip_printed) {
             char ip_str[16];
             int result = wifi_get_ip_address_public(ip_str, sizeof(ip_str));

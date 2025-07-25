@@ -175,6 +175,59 @@ void debug_image_headers(void)
     }
 }
 
+int ota_get_running_firmware_version2(char *buf, size_t buf_size)
+{
+    struct mcuboot_img_header header;
+    const struct flash_area *fa;
+    int rc;
+
+    uint8_t area_id = DT_FIXED_PARTITION_ID(DT_NODELABEL(slot0_partition));
+
+    rc = flash_area_open(area_id, &fa);
+    if (rc != 0) {
+        LOG_ERR("Failed to open flash area %u. Error: %d", area_id, rc);
+        return rc;
+    }
+
+    // --- ADD THIS DIAGNOSTIC LOG ---
+    LOG_INF("Successfully opened flash area for slot0:");
+    LOG_INF("  Area ID: %u", fa->fa_id);
+    LOG_INF("  Device: %s", fa->fa_dev->name);
+    LOG_INF("  Offset: 0x%lx", fa->fa_off); // This should be 0x20000!
+    LOG_INF("  Size: 0x%zx", fa->fa_size);
+
+    rc = flash_area_read(fa, 0, &header, sizeof(header));
+
+    //rc = flash_area_open(DT_FIXED_PARTITION_ID(DT_NODELABEL(slot0_partition)), &fa);
+    if (rc != 0) {
+        LOG_ERR("Failed to open slot0 partition to get version. Error: %d", rc);
+        return rc;
+    }
+
+    /* Read the header directly from the flash area */
+    rc = flash_area_read(fa, 0, &header, sizeof(header));
+    flash_area_close(fa); // Close the area as soon as we're done
+
+    if (rc != 0) {
+        LOG_ERR("Failed to read header from slot0. Error: %d", rc);
+        return rc;
+    }
+
+    /* Format the version string into the provided buffer */
+    rc = snprintf(buf, buf_size, "%u.%u.%u",
+                  header.h.v1.sem_ver.major,
+                  header.h.v1.sem_ver.minor,
+                  header.h.v1.sem_ver.revision); //build_num
+
+    if (rc < 0 || rc >= buf_size) {
+        LOG_ERR("Buffer too small for version string. Required: %d, available: %zu",
+                rc, buf_size);
+        return -ENOMEM;
+    }
+
+    return 0; // Success
+}
+
 int ota_get_running_firmware_version(char *buf, size_t buf_size)
 {
     struct mcuboot_img_header header;
@@ -185,9 +238,10 @@ int ota_get_running_firmware_version(char *buf, size_t buf_size)
      * from which the current application was booted. This is more robust
      * than hardcoding the slot0 ID, especially in revert scenarios.
      */
-    uint8_t active_slot_id = boot_fetch_active_slot();
+    // not working on esp32_s3 boot_fetch_active_slot TODO
+    uint8_t active_slot_id = boot_fetch_active_slot(); 
 
-    rc = boot_read_bank_header(active_slot_id, &header, sizeof(header));
+    rc = boot_read_bank_header(DT_FIXED_PARTITION_ID(DT_NODELABEL(slot0_partition)), &header, sizeof(header));
     if (rc != 0) {
         LOG_ERR("Failed to read running image header from slot %u. Error: %d",
                 active_slot_id, rc);

@@ -86,7 +86,7 @@ void ota_register_status_callback(void (*callback)(ota_status_t status));
  * @return A negative error code from the underlying boot/flash functions on other failures.
  */
 int ota_get_running_firmware_version(char *buf, size_t buf_size);
-
+int ota_get_running_firmware_version2(char *buf, size_t buf_size);
 static void ota_enter_backoff_state(void);
 
 #ifdef __cplusplus

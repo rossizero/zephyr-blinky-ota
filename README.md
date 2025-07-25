@@ -132,3 +132,4 @@ CONFIG_BOOTUTIL_USE_MBED_TLS=y```
 * find out why it only boots from the latest version after the second run/download
 * for the c3 board: `error message undefined reference to '__atomic_exchange_4' and undefined reference to '__atomic_fetch_add_4'`
 * if app.overlay and /boards/boardname.overlay, app.overlay is being ignored
+* find out if there is an UPGRADE_ONLY  SB_CONFIG for mcuboot, since CONFIG_BOOT_UPGRADE_ONLY is ignored at any other place

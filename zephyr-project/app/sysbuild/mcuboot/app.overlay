@@ -1,3 +1,7 @@
+/*
+ * This overlay is being used, when no board specific overlay was found in /boards
+ */
+
 / {
 	chosen {
 		zephyr,code-partition = &boot_partition;
