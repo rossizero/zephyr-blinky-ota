@@ -17,7 +17,6 @@
 #include <zephyr/devicetree.h>
 #include <zephyr/dfu/flash_img.h>
 #include <stdio.h>
-#include "watchdog_mgmt.h"
 
 
 LOG_MODULE_REGISTER(ota_mgmt, LOG_LEVEL_INF);
@@ -38,9 +37,6 @@ static size_t total_downloaded = 0;
 static bool headers_complete = false;
 static int retry_count = 0;
 static int http_sock = -1;
-
-/* Watchdog */
-static int ota_task_handle = -1;
 
 /* Version parsing from JSON */
 struct version_info {
@@ -274,9 +270,6 @@ static int create_http_socket(const char *host, int port)
 static int http_response_cb(struct http_response *rsp, enum http_final_call final_data, void *user_data)
 {
     int ret = 0;
-    
-    /* Feed watchdog to prevent reset during download */
-    watchdog_manager_check_in(ota_task_handle);
 
     /* Check if this is the first time we get body data */
     if (!headers_complete && rsp->body_frag_len > 0) {
@@ -532,7 +525,6 @@ static int apply_update(void)
     }
     
     LOG_INF("Update ready - rebooting in 3 seconds");
-    watchdog_manager_check_in(ota_task_handle);
     k_sleep(K_SECONDS(3));
     sys_reboot(SYS_REBOOT_WARM); //SYS_REBOOT_COLD
     
@@ -543,15 +535,6 @@ static int apply_update(void)
 static void ota_check_work_handler(struct k_work *work)
 {
     ARG_UNUSED(work);
-    
-    if (!watchdog_manager_is_monitoring_enabled(ota_task_handle)) {
-        LOG_INF("OTA is in backoff state. Will try again later.");
-        watchdog_manager_enable_monitoring(ota_task_handle, true);
-        update_status(OTA_STATUS_IDLE);
-        return;
-    }
-
-    watchdog_manager_check_in(ota_task_handle);
     
     switch (current_status) {
         case OTA_STATUS_IDLE:
@@ -572,9 +555,9 @@ static void ota_check_work_handler(struct k_work *work)
 }
 
 static void ota_enter_backoff_state(void) {
-    watchdog_manager_enable_monitoring(ota_task_handle, false);
     k_work_schedule(&ota_check_work, K_HOURS(1));
     set_error(OTA_ERR_SERVER_CONNECT);
+    update_status(OTA_STATUS_IDLE);
 }
 
 /* Public functions */
@@ -605,8 +588,6 @@ void ota_register_status_callback(void (*callback)(ota_status_t status))
 
 int ota_mgmt_init(void)
 {
-    ota_task_handle = watchdog_manager_register_task();
-
     k_work_init_delayable(&ota_check_work, ota_check_work_handler);
 
     if (boot_is_img_confirmed()) {

@@ -16,7 +16,6 @@ target_sources(app PRIVATE
     src/blinky.c
     src/wifi_mgmt.c
     src/ota_mgmt.c
-    src/watchdog_mgmt.c
 )
 
 #set(DTC_OVERLAY_FILE ${CMAKE_CURRENT_SOURCE_DIR}/boards/${BOARD}.overlay)
@@ -24,3 +23,8 @@ target_sources(app PRIVATE
 target_include_directories(app PRIVATE 
     include
 )
+
+if(CONFIG_RISCV AND CONFIG_SOC_SERIES_ESP32C3)
+    target_compile_options(app PRIVATE -march=rv32ima)
+    target_link_options(app PRIVATE -march=rv32ima)
+endif()

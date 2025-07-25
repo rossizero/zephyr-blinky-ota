@@ -8,7 +8,7 @@ $env:ZEPHYR_BASE = "$PWD\zephyr"
 
 $westArgs = @(
     "build",
-    "-b", "esp32_devkitc/esp32/procpu", #"esp32c3_devkitc", #"esp32_devkitc/esp32/procpu",
+    "-b", "esp32s3_devkitc/esp32s3/procpu", #"esp32c3_devkitc", #"esp32_devkitc/esp32/procpu",
     "--sysbuild",
     "app"
 )
