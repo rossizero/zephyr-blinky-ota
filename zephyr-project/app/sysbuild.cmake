@@ -1,16 +1,25 @@
-# This file is automatically included by the sysbuild system.
-# It allows us to use CMake logic to control the build.
+# sysbuild.cmake
+function(select_sysbuild_config)
+    set(SYSBUILD_DIR ${CMAKE_CURRENT_LIST_DIR})
+    # List of possible config files in order of preference
+    set(CONFIG_CANDIDATES
+        "${SYSBUILD_DIR}/sysbuild-${BOARD}.conf"
+        "${SYSBUILD_DIR}/sysbuild-default.conf"
+        "${SYSBUILD_DIR}/sysbuild.conf"
+    )
+    
+    # Find the first existing config file
+    foreach(CONFIG_FILE ${CONFIG_CANDIDATES})
+        if(EXISTS ${CONFIG_FILE})
+            set(SB_CONF_FILE ${CONFIG_FILE} PARENT_SCOPE)
+            message(STATUS "Sysbuild: Selected config file: ${CONFIG_FILE}")
+            return()
+        endif()
+    endforeach()
+    
+    # No config file found
+    message(FATAL_ERROR "Sysbuild: No configuration file found. Tried: ${CONFIG_CANDIDATES}")
+endfunction()
 
-# Check if the board being built is the esp32s3_devkitc
-# theoretically we could differ between boards here, to switch signature types
-# but for some reason anything else but CONFIG_BOOT_SIGNATURE_TYPE_ECDSA_P256 leads to iram overflow
-if(BOARD STREQUAL "esp32s3_devkitc____")
-  # If it is, tell sysbuild to use our S3-specific config file.
-  set(SB_CONF_FILE ${CMAKE_CURRENT_SOURCE_DIR}/sysbuild-esp32s3.conf)
-else()
-  # For any other board, use the default config file.
-  set(SB_CONF_FILE ${CMAKE_CURRENT_SOURCE_DIR}/sysbuild-default.conf)
-endif()
-
-# Print the chosen file for debugging purposes.
-message(STATUS "Sysbuild: Using configuration file: ${SB_CONF_FILE}")
+# Call the function
+select_sysbuild_config()
