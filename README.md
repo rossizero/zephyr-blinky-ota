@@ -159,3 +159,4 @@ CMake Error at C:/Users/SebastianR/Desktop/repos/zephyr-blinky-ota/zephyr-projec
 Call Stack (most recent call first):
   CMakeLists.txt:287 (zephyr_library_sources)
 ```
+* TODO CONFIG_BOOT_UPGRADE_ONLY not being applied

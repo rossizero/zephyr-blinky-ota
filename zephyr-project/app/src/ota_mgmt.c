@@ -17,6 +17,7 @@
 #include <zephyr/devicetree.h>
 #include <zephyr/dfu/flash_img.h>
 #include <stdio.h>
+#include <utils.h>
 
 
 LOG_MODULE_REGISTER(ota_mgmt, LOG_LEVEL_INF);
@@ -54,168 +55,9 @@ static void ota_check_work_handler(struct k_work *work);
 static int perform_update(void);
 static void update_status(ota_status_t new_status);
 static int apply_update(void);
-static int create_http_socket(const char *host, int port);
 static void ota_enter_backoff_state(void);
 
 
-/* Update OTA status and trigger callback if registered */
-static void update_status(ota_status_t new_status)
-{
-    if (current_status != new_status) {
-        current_status = new_status;
-        
-        /* Update LED pattern based on status */
-        switch (new_status) {
-        case OTA_STATUS_DOWNLOADING:
-            blinky_set_interval(LED_SLOW_BLINK_MS);
-            break;
-        case OTA_STATUS_APPLYING:
-            blinky_set_interval(LED_FAST_BLINK_MS);
-            break;
-        case OTA_STATUS_ERROR:
-            blinky_set_interval(LED_ERROR_PATTERN);
-            break;
-        default:
-            blinky_set_interval(LED_BLINK_INTERVAL_MS);
-            break;
-        }
-        
-        if (status_callback != NULL) {
-            status_callback(new_status);
-        }
-    }
-}
-
-/* Set error and update status */
-static void set_error(ota_error_t error)
-{
-    last_error = error;
-    update_status(OTA_STATUS_ERROR);
-}
-
-/* Direkte Boot-Trailer Manipulation */
-static int manual_boot_request_upgrade(void)
-{
-    const struct flash_area *fa;
-    int ret;
-    
-    ret = flash_area_open(DT_FIXED_PARTITION_ID(DT_NODELABEL(slot1_partition)), &fa);
-    if (ret) {
-        LOG_ERR("Cannot open slot1: %d", ret);
-        return ret;
-    }
-    
-    /* Boot-Trailer am Ende von Slot1 schreiben */
-    struct {
-        uint8_t image_ok;
-        uint8_t copy_done;
-        uint8_t reserved[14];
-        uint32_t magic;
-    } __packed trailer = {
-        .image_ok = 0x01,     // BOOT_FLAG_SET
-        .copy_done = 0xFF,    // BOOT_FLAG_UNSET
-        .magic = 0x96f3b83c   // BOOT_MAGIC
-    };
-    
-    size_t trailer_offset = fa->fa_size - sizeof(trailer);
-    
-    ret = flash_area_write(fa, trailer_offset, &trailer, sizeof(trailer));
-    if (ret) {
-        LOG_ERR("Failed to write boot trailer: %d", ret);
-        flash_area_close(fa);
-        return ret;
-    }
-    
-    LOG_INF("✓ Boot trailer written manually");
-    flash_area_close(fa);
-    return 0;
-}
-
-void debug_image_headers(void)
-{
-    LOG_INF("=== Image Header Debug ===");
-    
-    struct mcuboot_img_header header;
-    int ret;
-    
-    /* Slot0 (aktuell laufend) prüfen */
-    ret = boot_read_bank_header(DT_FIXED_PARTITION_ID(DT_NODELABEL(slot0_partition)), &header, sizeof(header));
-    if (ret == 0) {
-        LOG_INF("Slot0 - Image size: %u", header.h.v1.image_size);
-        LOG_INF("Slot0 - Version: %u.%u.%u+%u", 
-               header.h.v1.sem_ver.major,
-               header.h.v1.sem_ver.minor,
-               header.h.v1.sem_ver.revision,
-               header.h.v1.sem_ver.build_num);
-    } else {
-        LOG_ERR("Failed to read slot0 header: %d", ret);
-    }
-    
-    /* Slot1 (OTA Update) prüfen */
-    ret = boot_read_bank_header(DT_FIXED_PARTITION_ID(DT_NODELABEL(slot1_partition)), &header, sizeof(header));
-    if (ret == 0) {
-        LOG_INF("✓ Slot1 - Valid image found!");
-        LOG_INF("Slot1 - Image size: %u", header.h.v1.image_size);
-        LOG_INF("Slot1 - Version: %u.%u.%u+%u", 
-               header.h.v1.sem_ver.major,
-               header.h.v1.sem_ver.minor,
-               header.h.v1.sem_ver.revision,
-               header.h.v1.sem_ver.build_num);
-    } else {
-        LOG_ERR("✗ Slot1 - No valid image found: %d", ret);
-        
-        /* Raw Flash-Daten zur Diagnose lesen */
-        const struct flash_area *fa;
-        if (flash_area_open(DT_FIXED_PARTITION_ID(DT_NODELABEL(slot1_partition)), &fa) == 0) {
-            uint32_t magic;
-            flash_area_read(fa, 0, &magic, sizeof(magic));
-            LOG_ERR("Slot1 raw magic: 0x%08x (expected: 0x96f3b83d)", magic);
-            flash_area_close(fa);
-        }
-    }
-}
-
-int ota_get_running_firmware_version(char *buf, size_t buf_size)
-{
-    struct mcuboot_img_header header;
-    int rc;
-
-    /*
-     * Use boot_fetch_active_slot() to reliably get the ID of the slot
-     * from which the current application was booted. This is more robust
-     * than hardcoding the slot0 ID, especially in revert scenarios.
-     */
-    // TODO: not working on esp32_s3 boot_fetch_active_slot 
-    uint8_t active_slot_id = boot_fetch_active_slot(); 
-
-    rc = boot_read_bank_header(DT_FIXED_PARTITION_ID(DT_NODELABEL(slot0_partition)), &header, sizeof(header));
-    if (rc != 0) {
-        LOG_ERR("Failed to read running image header from slot %u. Error: %d",
-                active_slot_id, rc);
-        return rc; // Propagate the error (-EIO is common for empty/bad slots)
-    }
-
-    /* Format the version string into the provided buffer */
-    rc = snprintf(buf, buf_size, "%u.%u.%u",
-                  header.h.v1.sem_ver.major,
-                  header.h.v1.sem_ver.minor,
-                  header.h.v1.sem_ver.revision);
-
-    /*
-     * snprintf returns the number of characters that *would have been* written.
-     * We must check if this number is greater than or equal to the buffer size,
-     * which indicates truncation.
-     */
-    if (rc < 0 || rc >= buf_size) {
-        LOG_ERR("Buffer too small for version string. Required: %d, available: %zu",
-                rc, buf_size);
-        return -ENOMEM; // No memory/space available
-    }
-
-    return 0; // Success
-}
-
-/* Create HTTP socket connection */
 static int create_http_socket(const char *host, int port)
 {
     struct zsock_addrinfo hints, *result;
@@ -267,6 +109,41 @@ static int create_http_socket(const char *host, int port)
     return sock;
 }
 
+/* Update OTA status and trigger callback if registered */
+static void update_status(ota_status_t new_status)
+{
+    if (current_status != new_status) {
+        current_status = new_status;
+        
+        /* Update LED pattern based on status */
+        switch (new_status) {
+        case OTA_STATUS_DOWNLOADING:
+            blinky_set_interval(LED_SLOW_BLINK_MS);
+            break;
+        case OTA_STATUS_APPLYING:
+            blinky_set_interval(LED_FAST_BLINK_MS);
+            break;
+        case OTA_STATUS_ERROR:
+            blinky_set_interval(LED_ERROR_PATTERN);
+            break;
+        default:
+            blinky_set_interval(LED_BLINK_INTERVAL_MS);
+            break;
+        }
+        
+        if (status_callback != NULL) {
+            status_callback(new_status);
+        }
+    }
+}
+
+/* Set error and update status */
+static void set_error(ota_error_t error)
+{
+    last_error = error;
+    update_status(OTA_STATUS_ERROR);
+}
+
 /* HTTP response callback */
 static int http_response_cb(struct http_response *rsp, enum http_final_call final_data, void *user_data)
 {
@@ -296,7 +173,7 @@ static int http_response_cb(struct http_response *rsp, enum http_final_call fina
                 
                 /* Compare with current version */
                 char current_ver[16];
-                int rc = ota_get_running_firmware_version(current_ver, sizeof(current_ver));
+                ota_get_running_firmware_version(current_ver, sizeof(current_ver));
                 if (strcmp(version.version, current_ver) != 0) {
                     LOG_INF("New version available: %s (current: %s)",
                            version.version, current_ver);
@@ -421,7 +298,6 @@ static int perform_update(void)
     if (ret != 0) {
         LOG_ERR("Failed to open slot1 for erase: %d", ret);
         set_error(OTA_ERR_FLASH_INIT);
-        ota_enter_backoff_state();
         return ret;
     }
 
@@ -432,7 +308,6 @@ static int perform_update(void)
     if (ret != 0) {
         LOG_ERR("Failed to erase slot1: %d", ret);
         set_error(OTA_ERR_FLASH_INIT);
-        ota_enter_backoff_state();
         return ret;
     }
     LOG_INF("✓ Slot1 erased successfully.");
@@ -440,7 +315,6 @@ static int perform_update(void)
     if (ret != 0) {
         LOG_ERR("Failed to erase slot1: %d", ret);
         set_error(OTA_ERR_FLASH_INIT);
-        ota_enter_backoff_state();
         return ret;
     }
     LOG_INF("✓ Slot1 erased successfully.");
@@ -452,7 +326,6 @@ static int perform_update(void)
     if (ret != 0) {
         LOG_ERR("Failed to initialize flash context: %d", ret);
         set_error(OTA_ERR_FLASH_INIT);
-        ota_enter_backoff_state();
         return ret;
     }
 
@@ -463,8 +336,7 @@ static int perform_update(void)
     http_sock = create_http_socket(OTA_SERVER_HOST, OTA_SERVER_PORT);
     if (http_sock < 0) {
         set_error(OTA_ERR_SERVER_CONNECT);
-        LOG_ERR("Server connection failed. Entering 1-hour backoff.");
-        ota_enter_backoff_state();
+        LOG_ERR("Server connection failed.");
         return -ECONNREFUSED;
     }
     /* Setup HTTP request for firmware download */
@@ -550,7 +422,6 @@ static int apply_update(void)
 
     /* Mark image for testing */
     int ret = boot_request_upgrade(BOOT_UPGRADE_TEST);
-    //int ret = manual_boot_request_upgrade();
     if (ret != 0) {
         LOG_ERR("Failed to request upgrade: %d", ret);
         set_error(OTA_ERR_APPLY_UPDATE);
@@ -587,7 +458,7 @@ static void ota_check_work_handler(struct k_work *work)
     }
 }
 
-static void ota_enter_backoff_state(void) {
+void ota_enter_backoff_state(void) {
     k_work_schedule(&ota_check_work, K_HOURS(1));
     set_error(OTA_ERR_SERVER_CONNECT);
     update_status(OTA_STATUS_IDLE);

@@ -7,6 +7,7 @@
 #include "wifi_mgmt.h"
 #include "ota_mgmt.h"
 #include <zephyr/linker/linker-defs.h>
+#include <utils.h>
 
 LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
 
@@ -54,6 +55,7 @@ static void ota_status_changed(ota_status_t status)
 
 int main(void)
 {    
+    printk("<<<<< MAIN FUNCTION HAS STARTED >>>>>\n");
     LOG_INF("====================================");
     LOG_INF("   ESP32 OTA Application Booting    ");
     LOG_INF("====================================");

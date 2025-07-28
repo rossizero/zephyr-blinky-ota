@@ -16,6 +16,7 @@ target_sources(app PRIVATE
     src/blinky.c
     src/wifi_mgmt.c
     src/ota_mgmt.c
+    src/utils.c
 )
 
 #set(DTC_OVERLAY_FILE ${CMAKE_CURRENT_SOURCE_DIR}/boards/${BOARD}.overlay)
