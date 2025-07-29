@@ -2,22 +2,6 @@
 #define UTILS_H
 
 #include <stddef.h>
-#include <stdint.h>
-#include <zephyr/kernel.h>
-#include <zephyr/net/socket.h>
-#include <zephyr/storage/flash_map.h>
-#include <zephyr/dfu/mcuboot.h>
-#include <zephyr/storage/stream_flash.h>
-#include <zephyr/sys/reboot.h>
-#include <zephyr/logging/log.h>
-#include <zephyr/init.h>
-#include <zephyr/net/http/client.h>
-#include <zephyr/net/net_ip.h>
-#include <zephyr/data/json.h>
-#include <string.h>
-#include <zephyr/devicetree.h>
-#include <zephyr/dfu/flash_img.h>
-#include <stdio.h>
 
 #ifdef __cplusplus
 extern "C" {

@@ -1,18 +1,11 @@
 #ifndef BLINKY_H
 #define BLINKY_H
 
-#include <zephyr/kernel.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-/**
- * @brief Initialize LED blinking
- * 
- * @return 0 on success, negative error code on failure
- */
-int blinky_init(void);
 
 /**
  * @brief Set LED blink interval

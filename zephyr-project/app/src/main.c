@@ -1,13 +1,14 @@
-#include <zephyr/kernel.h>
-#include <zephyr/logging/log.h>
-#include <zephyr/dfu/mcuboot.h>
-
 #include "app_config.h"
 #include "blinky.h"
 #include "wifi_mgmt.h"
 #include "ota_mgmt.h"
+#include "utils.h"
+
+#include <zephyr/kernel.h>
+#include <zephyr/logging/log.h>
+#include <zephyr/dfu/mcuboot.h>
 #include <zephyr/linker/linker-defs.h>
-#include <utils.h>
+
 
 LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
 
@@ -48,32 +49,32 @@ static void ota_status_changed(ota_status_t status)
     case OTA_STATUS_ERROR:
         LOG_ERR("OTA: Error occurred, code: %d", ota_get_last_error());
         break;
+    case OTA_STATUS_SLEEPING:
+        LOG_INF("OTA: Going to sleep");
+        break;
     default:
         break;
     }
 }
 
 int main(void)
-{    
-    printk("<<<<< MAIN FUNCTION HAS STARTED >>>>>\n");
+{
     LOG_INF("====================================");
     LOG_INF("   ESP32 OTA Application Booting    ");
     LOG_INF("====================================");
 
-    // This is the most important part after an OTA update.
-    // Check if we are running an unconfirmed image.
     if (boot_is_img_confirmed() == 0) {
         LOG_WRN("Running new firmware in TEST mode.");
         LOG_WRN("Scheduling confirmation in 30 seconds.");
-        // We wait 30 seconds to ensure the system is stable (e.g., WiFi connects)
-        // before making the update permanent.
         k_work_schedule(&confirm_work, K_SECONDS(30));
     } else {
         LOG_INF("Running a confirmed image.");
+        ota_check_for_update();
     }
-    LOG_INF("Address of sample %p\n", (void *)__rom_region_start);
+    LOG_DBG("Address of app %p\n", (void *)__rom_region_start);
 
     ota_register_status_callback(ota_status_changed);
+
     char current_ver[16];
     int rc = ota_get_running_firmware_version(current_ver, sizeof(current_ver));
     if (rc == 0) {
@@ -95,7 +96,7 @@ int main(void)
                 LOG_INF("IP: %s", ip_str);
                 ip_printed = true;
             } else {
-                LOG_INF("No IP");
+                LOG_INF("No IP yet");
             }
         }
     }
