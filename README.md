@@ -22,6 +22,7 @@ Tested on following boards:
    * build and flash the app 
    * make the bins easy available for the update server
    * start putty
+- And the best thing: Still quite a lot of debug messages
 
 ## Project Structure
 - `update-server/`: Python OTA update server
@@ -72,6 +73,19 @@ cd update-server
 python update_server.py
 ```
 
+### One full cycle
+* build and flash your esp
+* build again but don't flash the esp
+* start the update server (it should take the .bin from /builds/board/latest/) or set the path manually
+* Steps on esp:
+  * connect to wifi and obtain IP
+  * after 30 seconds or so the initial update check is being triggered
+  * you can see output from the update server
+  * first checking firmware version of the server, if it differs from the current version
+  * download is being triggered
+  * then the update will be applied and the esp reboots
+
+
 ## Useful stuff and Learnings/TODOs
 * If board behaves weirdly:
 ```
@@ -82,6 +96,11 @@ west flash --erase
 pip install imgtool
 imgtool keygen -k /keys/[name.pem] -t [type]
 imgtool verify .\build\app\zephyr\zephyr.signed.bin -k [keyfile]
+```
+* flash old build (if mcuboot is already present)
+```
+#maybe pip install esptool
+esptool --port COM11 write-flash 0x20000 .\builds\esp32s3_devkitc_esp32s3_procpu\esp32s3_devkitc_esp32s3_procpu_1.0.0_0.bin
 ```
 ### Notes:
 * LEARNING: find out why I can't name the /sysbuild/mcuboot.overlay a board specific name like mcuboot_esp32_devkitc_esp32_procpu.overlay
@@ -127,4 +146,5 @@ CMake Error at C:/Users/SebastianR/Desktop/repos/zephyr-blinky-ota/zephyr-projec
 Call Stack (most recent call first):
   CMakeLists.txt:287 (zephyr_library_sources)
 ```
-* TODO CONFIG_BOOT_UPGRADE_ONLY not being applied
+* TODO CONFIG_BOOT_UPGRADE_ONLY not being applied -> yes we can downgrade the version number
+   * the manual check only compares version strings for equality, but I guess if the option would be enabled, mcuboot discards the upgrade itself

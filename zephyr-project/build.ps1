@@ -8,7 +8,7 @@ param(
 
 $env:ZEPHYR_SDK_INSTALL_DIR = "C:\zephyr-sdk-0.17.2"
 $env:ZEPHYR_BASE = "$PWD\zephyr"
-$board = "esp32s3_devkitc/esp32s3/procpu" #"esp32c3_devkitc", #"esp32_devkitc/esp32/procpu", "esp32s3_devkitc/esp32s3/procpu"
+$board = "esp32_devkitc/esp32/procpu" #esp32s3_devkitc/esp32s3/procpu" #"esp32c3_devkitc", #"esp32_devkitc/esp32/procpu", "esp32s3_devkitc/esp32s3/procpu"
 
 # 1. Step build the app + mcuboot with sysbuild
 $westArgs = @(

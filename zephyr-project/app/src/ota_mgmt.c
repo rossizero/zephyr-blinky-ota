@@ -262,7 +262,7 @@ static void update_status(ota_status_t new_status)
 {
     if (current_status != new_status) {
         current_status = new_status;
-        
+
         if (status_callback != NULL) {
             status_callback(new_status);
         }
@@ -456,6 +456,7 @@ static void ota_check_work_handler(struct k_work *work)
             break;
     }
 
+    LOG_ERR("check for error in work handler: %d", ret);
     if(ret < 0) {
         ota_enter_backoff_state();
     }
