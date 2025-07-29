@@ -96,17 +96,18 @@ static int wifi_get_ip_address(char *ip_str, size_t len)
         return -ENETDOWN;
     }
 
-    struct in_addr *addr = net_if_ipv4_get_global_addr(iface, 0);
-    if (!addr) {
-        LOG_WRN("No IPv4 address assigned");
-        return -ENOENT;
+    for (int state = 0; state < 5; state++) {
+        struct in_addr *addr = net_if_ipv4_get_global_addr(iface, state);
+        if (addr) {
+            char temp_ip[16];
+            net_addr_ntop(AF_INET, addr, temp_ip, sizeof(temp_ip));
+            LOG_INF("Found IP (state %d): %s", state, temp_ip);
+            strncpy(ip_str, temp_ip, len);
+            ip_str[len-1] = '\0';
+            return 0;
+        }
     }
-
-    if (!net_addr_ntop(AF_INET, addr, ip_str, len)) {
-        LOG_ERR("Failed to convert IP to string");
-        return -EINVAL;
-    }
-    return 0;
+    return -1;
 }
 
 static void wifi_connect_work_handler(struct k_work *work)

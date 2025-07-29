@@ -66,8 +66,39 @@ static int handle_version_response(struct http_response *rsp);
 static int handle_firmware_download(struct http_response *rsp, enum http_final_call final_data);
 static int process_version_info(const char *json_data, size_t len);
 static int write_firmware_chunk(const char *data, size_t len, bool is_final);
+static int create_http_socket(const char *host, int port);
 
+// Public functions
+int ota_check_for_update(void)
+{
+    if (current_status == OTA_STATUS_SLEEPING) {
+        LOG_INF("Waking ota manager up..");
+        update_status(OTA_STATUS_IDLE);
+    }
+    if (current_status != OTA_STATUS_IDLE) {
+        LOG_WRN("OTA operation already in progress");
+        return -EBUSY;
+    }
+    
+    return check_for_update();
+}
 
+ota_status_t ota_get_status(void)
+{
+    return current_status;
+}
+
+ota_error_t ota_get_last_error(void)
+{
+    return last_error;
+}
+
+void ota_register_status_callback(void (*callback)(ota_status_t status))
+{
+    status_callback = callback;
+}
+
+// private static functions
 static int http_response_cb(struct http_response *rsp, enum http_final_call final_data, void *user_data)
 {
     int ret = 0;
@@ -163,13 +194,7 @@ static int write_firmware_chunk(const char *data, size_t len, bool is_final)
     }
     
     total_downloaded += len;
-    
-    // Log progress periodically
-    if (total_downloaded % 4096 == 0 || is_final) {
-        double progress = (double)total_downloaded * 100.0 / content_length;
-        LOG_INF("Downloaded: %zu bytes (%.1f%%)", total_downloaded, progress);
-    }
-    
+
     if (is_final) {
         LOG_INF("Firmware download complete: %zu bytes", total_downloaded);
     }
@@ -177,35 +202,6 @@ static int write_firmware_chunk(const char *data, size_t len, bool is_final)
     return 0;
 }
 
-//---------------------------
-
-// Public functions
-int ota_check_for_update(void)
-{
-    if (current_status != OTA_STATUS_IDLE) {
-        LOG_WRN("OTA operation already in progress");
-        return -EBUSY;
-    }
-    
-    return check_for_update();
-}
-
-ota_status_t ota_get_status(void)
-{
-    return current_status;
-}
-
-ota_error_t ota_get_last_error(void)
-{
-    return last_error;
-}
-
-void ota_register_status_callback(void (*callback)(ota_status_t status))
-{
-    status_callback = callback;
-}
-
-// private static functions
 static int create_http_socket(const char *host, int port)
 {
     struct zsock_addrinfo hints, *result;
@@ -258,28 +254,14 @@ static int create_http_socket(const char *host, int port)
 static void ota_enter_backoff_state(void) {
     set_error(OTA_ERR_NONE);
     update_status(OTA_STATUS_SLEEPING);
-    k_work_schedule(&ota_check_work, K_HOURS(1));
+    LOG_WRN("Entering sleeping state.");
+    k_work_schedule(&ota_check_work, K_SECONDS(OTA_CHECK_INTERVAL_SEC));
 }
 
 static void update_status(ota_status_t new_status)
 {
     if (current_status != new_status) {
         current_status = new_status;
-
-        switch (new_status) {
-            case OTA_STATUS_DOWNLOADING:
-                blinky_set_interval(LED_SLOW_BLINK_MS);
-                break;
-            case OTA_STATUS_APPLYING:
-                blinky_set_interval(LED_FAST_BLINK_MS);
-                break;
-            case OTA_STATUS_ERROR:
-                blinky_set_interval(LED_ERROR_PATTERN);
-                break;
-            default:
-                blinky_set_interval(LED_BLINK_INTERVAL_MS);
-                break;
-        }
         
         if (status_callback != NULL) {
             status_callback(new_status);
@@ -291,91 +273,6 @@ static void set_error(ota_error_t error)
 {
     last_error = error;
     update_status(OTA_STATUS_ERROR);
-}
-
-static int http_response_cb_(struct http_response *rsp, enum http_final_call final_data, void *user_data)
-{
-    int ret = 0;
-
-    /* Check if this is the first time we get body data */
-    if (!headers_complete && rsp->body_frag_len > 0) {
-        if (rsp->http_status_code != 200) {
-            LOG_ERR("HTTP request failed with status: %d %s", rsp->http_status_code, rsp->http_status);
-            set_error(OTA_ERR_DOWNLOAD_FAILED);
-            return -1;
-        }
-        headers_complete = true;
-        content_length = rsp->content_length;
-        LOG_INF("HTTP headers complete, content length: %lld", content_length);
-        
-        /* If checking version, parse the JSON response */
-        if (current_status == OTA_STATUS_CHECKING) {
-            struct version_info version = {0};
-            
-            ret = json_obj_parse(rsp->body_frag_start, rsp->body_frag_len,
-                               version_descr, ARRAY_SIZE(version_descr),
-                               &version);
-            
-            if (ret > 0 && version.version) {
-                LOG_INF("Server version: %s", version.version);
-                
-                /* Compare with current version */
-                char current_ver[16];
-                ota_get_running_firmware_version(current_ver, sizeof(current_ver));
-                if (strcmp(version.version, current_ver) != 0) {
-                    LOG_INF("New version available: %s (current: %s)",
-                           version.version, current_ver);
-                    update_status(OTA_STATUS_UPDATE_AVAILABLE);
-                    
-                    /* Start download after a short delay */
-                    k_work_schedule(&ota_check_work, K_SECONDS(5));
-                } else {
-                    LOG_INF("Already running latest version");
-                    update_status(OTA_STATUS_IDLE);
-                }
-            } else {
-                LOG_ERR("Failed to parse version info");
-                set_error(OTA_ERR_SERVER_CONNECT);
-            }
-            
-            return 0;
-        }
-
-        if (current_status == OTA_STATUS_DOWNLOADING) {
-            LOG_INF("Flash initialized for firmware download");
-            total_downloaded = 0;
-        }
-    }
-    
-    /* Process body data for firmware download */
-    if (headers_complete && current_status == OTA_STATUS_DOWNLOADING && 
-        rsp->body_frag_len > 0) {
-        
-        ret = flash_img_buffered_write(&image_ctx, 
-                rsp->body_frag_start,
-                rsp->body_frag_len, 
-                (final_data == HTTP_DATA_FINAL));
-
-        if (ret < 0) {
-            LOG_ERR("Flash write error: %d", ret);
-            set_error(OTA_ERR_FLASH_WRITE);
-            return ret;
-        }
-        
-        total_downloaded += rsp->body_frag_len;
-        
-        if (total_downloaded % 4096 == 0 || final_data == HTTP_DATA_FINAL) {
-            double progress = (double)total_downloaded * 100.0 / content_length;
-            LOG_INF("Downloaded: %zu bytes (%.1f%%)", total_downloaded, progress);
-        }
-        
-        /* Check if download is complete */
-        if (final_data == HTTP_DATA_FINAL) {
-            LOG_INF("Firmware download complete: %zu bytes", total_downloaded);
-        }
-    }
-    
-    return 0;
 }
 
 static int check_for_update(void)
@@ -390,8 +287,7 @@ static int check_for_update(void)
     /* try to create socket connection */
     http_sock = create_http_socket(OTA_SERVER_HOST, OTA_SERVER_PORT);
     if (http_sock < 0) {
-        LOG_ERR("Server connection failed. Entering 1-hour backoff.");
-        ota_enter_backoff_state();
+        LOG_ERR("Server connection failed");
         return http_sock;
     }
     
@@ -417,8 +313,7 @@ static int check_for_update(void)
     
     /* in case something went wrong */
     if (ret < 0) {
-        LOG_ERR("HTTP Request returned an error. Entering 1-hour backoff to try again later..");
-        ota_enter_backoff_state();
+        LOG_ERR("HTTP Request returned an error.");
     }
     
     return ret;
@@ -429,8 +324,7 @@ static int download_update(void)
     LOG_INF("Trying to download firmware, preparing flash area");
 
     if (!wifi_is_connected()) {
-        LOG_WRN("WiFi not connected, cannot download update. Entering 1-hour backoff to try again later..");
-        ota_enter_backoff_state();
+        LOG_WRN("WiFi not connected, cannot download update.");
         return -ENOTCONN;
     }
 
@@ -503,7 +397,7 @@ static int download_update(void)
             LOG_ERR("Max retry attempts reached, giving up");
             retry_count = 0;
             update_status(OTA_STATUS_IDLE);
-            ota_enter_backoff_state();
+            return -1;
         }
     } else {
         LOG_INF("Firmware download successful.");
@@ -540,25 +434,30 @@ static int apply_update(void)
 static void ota_check_work_handler(struct k_work *work)
 {
     ARG_UNUSED(work);
-    
+    int ret = 0;
+
     switch (current_status) {
         case OTA_STATUS_IDLE:
-            check_for_update();
+            ret = check_for_update();
             break;
             
         case OTA_STATUS_UPDATE_AVAILABLE:
-            download_update();
+            ret = download_update();
             break;
             
         case OTA_STATUS_DOWNLOAD_COMPLETE:
-            apply_update();
+            ret = apply_update();
             break;
         case OTA_STATUS_SLEEPING:
             update_status(OTA_STATUS_IDLE);
-            check_for_update();
+            ret = check_for_update();
             break;
         default:
             break;
+    }
+
+    if(ret < 0) {
+        ota_enter_backoff_state();
     }
 }
 

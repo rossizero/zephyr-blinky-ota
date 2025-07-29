@@ -31,29 +31,33 @@ static void confirm_work_handler(struct k_work *work)
 static void ota_status_changed(ota_status_t status)
 {
     switch (status) {
-    case OTA_STATUS_CHECKING:
-        LOG_INF("OTA: Checking for updates...");
-        break;
-    case OTA_STATUS_UPDATE_AVAILABLE:
-        LOG_INF("OTA: Update available, preparing download");
-        break;
-    case OTA_STATUS_DOWNLOADING:
-        LOG_INF("OTA: Downloading firmware update");
-        break;
-    case OTA_STATUS_DOWNLOAD_COMPLETE:
-        LOG_INF("OTA: Download complete, preparing to apply");
-        break;
-    case OTA_STATUS_APPLYING:
-        LOG_INF("OTA: Applying update, device will reboot");
-        break;
-    case OTA_STATUS_ERROR:
-        LOG_ERR("OTA: Error occurred, code: %d", ota_get_last_error());
-        break;
-    case OTA_STATUS_SLEEPING:
-        LOG_INF("OTA: Going to sleep");
-        break;
-    default:
-        break;
+        case OTA_STATUS_CHECKING:
+            LOG_INF("OTA: Checking for updates...");
+            break;
+        case OTA_STATUS_UPDATE_AVAILABLE:
+            LOG_INF("OTA: Update available, preparing download");
+            break;
+        case OTA_STATUS_DOWNLOADING:
+            blinky_set_interval(LED_FAST_BLINK_MS);
+            LOG_INF("OTA: Downloading firmware update");
+            break;
+        case OTA_STATUS_DOWNLOAD_COMPLETE:
+            LOG_INF("OTA: Download complete, preparing to apply");
+            break;
+        case OTA_STATUS_APPLYING:
+            LOG_INF("OTA: Applying update, device will reboot");
+            break;
+        case OTA_STATUS_ERROR:
+            blinky_set_interval(LED_ERROR_PATTERN);
+            LOG_ERR("OTA: Error occurred, code: %d", ota_get_last_error());
+            break;
+        case OTA_STATUS_SLEEPING:
+            blinky_set_interval(LED_SLOW_BLINK_MS);
+            LOG_INF("OTA: Going to sleep");
+            break;
+        default:
+            blinky_set_interval(LED_BLINK_INTERVAL_MS);
+            break;
     }
 }
 
@@ -69,7 +73,6 @@ int main(void)
         k_work_schedule(&confirm_work, K_SECONDS(30));
     } else {
         LOG_INF("Running a confirmed image.");
-        ota_check_for_update();
     }
     LOG_DBG("Address of app %p\n", (void *)__rom_region_start);
 
@@ -80,7 +83,7 @@ int main(void)
     if (rc == 0) {
         LOG_INF("Current running version: %s", current_ver);
     } else {
-        LOG_WRN("Somethings wrong with the version getter");
+        LOG_WRN("Something is wrong with the version getter");
     }
     
     bool ip_printed = false;

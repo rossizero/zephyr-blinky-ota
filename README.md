@@ -5,16 +5,23 @@
 * also cool: https://docs.nordicsemi.com/bundle/ncs-2.9.0/page/zephyr/build/sysbuild/index.html#zephyr_application_configuration
 
 This project demonstrates a Zephyr RTOS-based ESP32 application with WiFi connectivity and Over-The-Air (OTA) firmware update capabilities. The application blinks an LED, connects to WiFi, and periodically checks for firmware updates from a local update server.
+Tested on following boards:
+* esp32
+* esp32s3
+* build only, not tested on hardware: esp32c3
 
 ## Features
-
 - LED blinking with configurable patterns
 - WiFi connectivity
 - OTA firmware updates
 - MCUboot bootloader integration
-- Dual-partition flash layout for safe updates
-- Automatic rollback on failed updates
+- MUCboot upgrade strategy swap using move
+- Encyption with ECDSA_P256, anything else uses too much IRAM for an esp32 to handle
 - Python-based update server
+- Some helper scripts to:
+   * build and flash the app 
+   * make the bins easy available for the update server
+   * start putty
 
 ## Project Structure
 - `update-server/`: Python OTA update server
@@ -23,9 +30,9 @@ This project demonstrates a Zephyr RTOS-based ESP32 application with WiFi connec
   - `app/include/`: Header files
   - `app/boards/`: Board-specific overlay files
   - `app/sysbuild/`: MCUboot configuration
+  - `keys/`: we don't talk about that
 
 ## Prerequisites
-
 - Zephyr RTOS development environment
 - ESP32 development board
 - Python 3.x for the update server
@@ -36,86 +43,47 @@ This project demonstrates a Zephyr RTOS-based ESP32 application with WiFi connec
 
 1. Set up your Zephyr development environment
 2. Clone this repository
-3. Configure your WiFi credentials in `zephyr-project/src/app_config.h`
+3. Configure your WiFi credentials and IP addreses in `zephyr-project/app/src/app_config.h`
+4. for the update server to work, you need to be in a private network and expose your configurated port
 
-### Building
+### Building & Signing & Copying bins
 
 Use the provided build script:
 ```
-MCUBOOT:
-actiavte venv
-go to: zephyr-project\bootloader\mcuboot\boot\zephyr
-maybe set env: 
-$env:ZEPHYR_SDK_INSTALL_DIR = "C:\zephyr-sdk-0.17.2"
-west build -b esp32_devkitc/esp32/procpu
-west flash
-then continue with the app itself
+source venv in /zephyr-project
+build.ps1 (-p for pristine build)
 ```
+### Flashing
 
+Use the provided flash script:
 ```
-west build -b esp32_devkitc/esp32/procpu -p always -d build_bootloader bootloader/mcuboot/boot/zephyr -- -DPM_STATIC_YML_FILE="pm_static.yml"
-west build -b esp32_devkitc/esp32/procpu -p always -d build_app . -- -DPM_STATIC_YML_FILE="pm_static.yml"
-
-west flash -d build_bootloader
-west flash -d build_app
-```
-
-```
-west sign -t imgtool -- keygen -k root-rsa-2048.pem -t rsa-2048
-```
-
-```
-west build -t guiconfig
-```
-### Manual Building
-
-```bash
-# Build for ESP32
-west build -b esp32_devkitc_esp32_procpu zephyr-project
-
-# Flash the firmware
-west flash
+source venv in /zephyr-project
+flash.ps1 -p COMX
 ```
 
 ## OTA Update Process
 
 ### Starting the Update Server
-
-```powershell
-./build.ps1 -action ota-server
+* adjust board name in update_server.py. Use the name of the generated folder in /builds (with _ instead of /)
+* use your configured port
 ```
-
-Or manually:
-
-```bash
+source venv in /zephyr-project
 cd update-server
-python ota_server.py --version 1.0.1 --firmware firmware.bin
+python update_server.py
 ```
 
-```
-in /zephyr-project
-python -m venv venv
-venv/Scripts\Activate.ps1
-pip install west
-west init .
-west update
-west zephyr-export
-evtl. wg. permissions: pip cache purge
-pip install -r zephyr/scripts/requirements.txt
-west blobs fetch hal_espressif
-```
-
+## Useful stuff and Learnings/TODOs
+* If board behaves weirdly:
 ```
 west flash --erase
-west flash --esp-device COM10
 ```
-
+* check signing
 ```
 pip install imgtool
 imgtool keygen -k /keys/[name.pem] -t [type]
 imgtool verify .\build\app\zephyr\zephyr.signed.bin -k [keyfile]
 ```
-TODO:
+### Notes:
 * LEARNING: find out why I can't name the /sysbuild/mcuboot.overlay a board specific name like mcuboot_esp32_devkitc_esp32_procpu.overlay
   * this works, but some options are overridden by SB_CONFIGs from the main sysbuild.conf
 * TODO: find out how to set the key.pem path relative without west searching for it in the mcuboot repo /bootloader/mcuboot...

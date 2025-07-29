@@ -18,7 +18,8 @@ logger = logging.getLogger(__name__)
 
 # Default values
 DEFAULT_PORT = 8080
-DEFAULT_FIRMWARE_PATH = "zephyr.signed.bin"
+BOARD = "esp32s3_devkitc_esp32s3_procpu"
+DEFAULT_FIRMWARE_PATH = os.path.join("..", "zephyr-project", "builds", BOARD, "latest", "zephyr.signed.bin")
 
 class OTAHandler(BaseHTTPRequestHandler):
     def __init__(self, *args, version, firmware_path=DEFAULT_FIRMWARE_PATH, **kwargs):
@@ -141,10 +142,9 @@ if __name__ == '__main__':
     
     if args.verbose:
         logger.setLevel(logging.DEBUG)
-
-    version_number = "13.0.0"
     try:
         version_number = get_image_version(args.firmware)
-    except:
+        run_server(version_number, args.port, args.firmware)
+    except Exception as e:
+        print(e)
         pass
-    run_server(version_number, args.port, args.firmware)
