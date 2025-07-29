@@ -1,0 +1,15 @@
+{
+    "files.associations": {
+        "bootutil_public.h": "c",
+        "*.ch": "c",
+        "*.s": "c",
+        "mcuboot.h": "c",
+        "utils.h": "c",
+        "app_config.h": "c",
+        "devicetree.h": "c",
+        "flash_map.h": "c",
+        "log.h": "c",
+        "iosfwd": "c",
+        "xlocbuf": "c"
+    }
+}

@@ -1,5 +1,8 @@
 venv 
-build 
+builds
+build
+
+*.log
 
 # Prerequisites
 *.d

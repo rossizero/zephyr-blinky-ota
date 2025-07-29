@@ -1,0 +1,21 @@
+manifest:
+  defaults:
+    remote: upstream
+  remotes:
+    - name: upstream
+      url-base: https://github.com/zephyrproject-rtos
+    - name: mcuboot
+      url-base: https://github.com/mcu-tools
+  projects:
+    - name: zephyr
+      remote: upstream
+      revision: main
+      import: true
+    - name: mcuboot
+      remote: mcuboot
+      revision: main  # oder v2.1.0 für stabile Version
+      path: bootloader/mcuboot
+    - name: tinycrypt
+      path: modules/crypto/tinycrypt
+      remote: mcu-tools
+      revision: main
